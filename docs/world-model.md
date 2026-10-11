@@ -30,7 +30,7 @@ or changing a mechanism. Use existing context, retention and work fixtures to
 decide whether a bound improves diagnosis or execution; a linear compatibility
 model does not itself certify the nonlinear, learning life.
 
-| Wrong as the flagship application | Right organizing lifecycle |
+| Inconsistent with the intended application | Right organizing lifecycle |
 | --- | --- |
 | Rebuild a classifier for each observation, bypass memory, and count label accuracy as a world model. | Bootstrap one brain, retain its acquired relations and memory, use it, witness failures, repair and continue. |
 | Have an external trained readout or language model supply the answer. | Let reciprocal regions constrain the answer read from the brain's declared motor population. |
@@ -39,9 +39,9 @@ model does not itself certify the nonlinear, learning life.
 Isolated classifiers and calibration remain useful unit controls. The distinction
 is what capability the application demonstrates, not whether those tests exist.
 
-![A feed-forward network passes activity one way and takes gradients from an
-outside controller; a patch net's neurons hold local state and settle together
-over reciprocal synapses, with no layers, no order and no controller](assets/patchnet.svg)
+![A feed-forward network passes activity one way; a patch net's neurons hold local
+state and settle together over reciprocal synapses under a declared update
+schedule](assets/patchnet.svg)
 
 ## Bootstrap, use, repair, continue
 

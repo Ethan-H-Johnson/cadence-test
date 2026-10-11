@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clarify continuing-life state, model-specific agreement and residuals, and the
+  distinction between solver updates, environment time and learning events.
+  Make current architectural guidance self-contained. No runtime or default change.
+
 - Document existing results on self-stabilization, asynchronous contraction,
   moving equilibria and sheaf diffusion, with explicit applicability limits and
   consumers in context, retention and measured-work research. Clarify that the
