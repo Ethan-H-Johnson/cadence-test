@@ -139,10 +139,34 @@ when `0 < h < 2/lambda_max(L)` if `L` is nonzero; kernel components stay fixed.
 The paper also studies specific changing restriction-map laws. Their conclusions
 belong to those laws, not arbitrary plasticity.
 
-**Cadence mapping:** this supplies a precise linear comparison model for local
-compatibility and held boundaries. Current nonlinear activation, directed
-effective weights, finite nudges, reward updates and changing memories do not
-establish `F = I - h D*D`. Writing a squared neural residual and taking its
+Nonlinear edge potentials also have relevant prior results.
+[Hanks et al., 2025, Theorem 2](https://arxiv.org/abs/2504.02049v2)
+uses fixed linear restrictions on an undirected graph and differentiable,
+strongly convex edge potentials `U_e`. If their joint minimizer `b` lies in
+`image D`, continuous flow `dx/dt = -alpha D* grad U(D x)` converges to the
+initial state's projection onto `D^+ b + ker D`. Their ADMM construction adds
+closed, proper convex node objectives; Theorem 3 assumes a Lagrangian saddle
+point. A finite inner diffusion tolerance needs its own error control before
+claiming the exact-projection ADMM guarantee.
+
+[Zhao et al., 2025, Algorithm 1 and Theorem 1](https://arxiv.org/abs/2510.00270v1)
+studies asynchronous coordinate updates of that gradient form, with fixed
+restrictions and globally strongly convex, gradient-Lipschitz edge potentials.
+The intended schedule updates every coordinate in each `B+1`-step window,
+bounds stale reads by `B`, and uses the current own-coordinate value. For a
+sufficiently small fixed step, the stated result is periodic geometric decay
+of the energy gap and recent squared increments. Check the schedule against
+[Zhou et al., 2018, Assumptions 4–5 and Theorem 9](https://jmlr.org/papers/v19/17-444.html),
+which its proof invokes, and derive constants from the actual restrictions and
+potentials: do not import the v1 scheduler quantifier or spectral error-bound
+constant unchecked. This result does not imply a unique minimizer, the same
+limit under different schedules, or a fixed step valid for every delay bound.
+
+**Cadence mapping:** these supply a linear comparison model for compatibility
+and held boundaries, and nonlinear extensions with a specified gradient law.
+Current nonlinear activation, directed effective weights, finite nudges, reward
+updates and changing memories do not establish
+`F(x) = x - h D* grad U(D x)`. Writing a squared neural residual and taking its
 gradient generally changes the update by introducing its Jacobian transpose.
 Do not replace the capable foundation to manufacture that correspondence.
 Neither a linear section nor a harmonic extension is evidence of acquired

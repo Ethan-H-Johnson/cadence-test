@@ -8,6 +8,10 @@
   sufficient contraction certificate is stronger than state qualification.
   No runtime, default or behavioral claim changes.
 
+- Extend the settling guide with nonlinear sheaf coordination and bounded-delay
+  diffusion results, their fixed-map assumptions, and source checks needed before
+  reusing a scheduler or quantitative bound. No runtime change.
+
 - Normalize machine-specific storage prefixes in benchmark publication copies,
   preserving original fingerprints, measurements and historical outcomes in an
   explicit publication manifest; verify copied bytes and receipt envelope digests.
