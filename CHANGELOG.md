@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Document existing results on self-stabilization, asynchronous contraction,
+  moving equilibria and sheaf diffusion, with explicit applicability limits and
+  consumers in context, retention and measured-work research. Clarify that the
+  sufficient contraction certificate is stronger than state qualification.
+  No runtime, default or behavioral claim changes.
+
 - Normalize machine-specific storage prefixes in benchmark publication copies,
   preserving original fingerprints, measurements and historical outcomes in an
   explicit publication manifest; verify copied bytes and receipt envelope digests.

@@ -53,6 +53,7 @@ require a qualified full state; more regions do not guarantee better decisions.
 | Recursive wiring and learning | [Recursive settlement](recursive-settlement.md), [recursive training](recursive-training.md) |
 | Custom regions and connections | [Cortices](cortex.md), [genomes](evolution.md), [data shapes](build.md) |
 | Device execution and cost | [Backends](backends.md), [scaling](scaling.md) |
+| Reuse results on recovery, asynchronous updates and changing inputs | [Settling literature and its assumptions](settling-literature.md) |
 | Exact state-and-error population model | [Advanced population solver](equilibrium/index.md) |
 
 <a id="kept-for-existing-experiments"></a>

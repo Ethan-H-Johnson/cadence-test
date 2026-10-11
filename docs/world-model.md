@@ -23,6 +23,13 @@ promise perfect learning. Every addition uses the same local repair and
 settlement and preserves demonstrated capabilities under the
 [required mechanism review](../CONTRIBUTING.md#preserve-the-capable-foundation).
 
+For settling, recovery and cost research, start with
+[existing distributed-systems and operator results](settling-literature.md).
+Map their assumptions to the actual continuing brain before extending a theorem
+or changing a mechanism. Use existing context, retention and work fixtures to
+decide whether a bound improves diagnosis or execution; a linear compatibility
+model does not itself certify the nonlinear, learning life.
+
 | Wrong as the flagship application | Right organizing lifecycle |
 | --- | --- |
 | Rebuild a classifier for each observation, bypass memory, and count label accuracy as a world model. | Bootstrap one brain, retain its acquired relations and memory, use it, witness failures, repair and continue. |
