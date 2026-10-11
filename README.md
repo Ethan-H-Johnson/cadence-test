@@ -219,10 +219,11 @@ application demos.
 
 Cadence shares its basic principle with
 [Observer Patch Holography](https://github.com/FloatingPragma/observer-patch-holography)
-(OPH), a physics project that uses local repair to derive the laws of physics. In
-OPH, observer patches repair disagreements where they overlap until the whole
-network is consistent. In Cadence, neurons settle against what their connections
-predict, and learning changes those connections locally.
+(OPH), a physics research project investigating local consistency constraints.
+Cadence uses local neural updates and checks its declared settlement equations.
+The analogy does not identify the projects' mathematical models: an OPH result
+does not establish a Cadence capability, and Cadence measurements do not test
+OPH physics. Cadence stands on its own implementation and behavioral evidence.
 
 ## Cadence memecoin
 

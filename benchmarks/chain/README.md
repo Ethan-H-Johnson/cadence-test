@@ -62,8 +62,8 @@ PYTHONPATH=src python benchmarks/chain/prerequisite_chain.py --verify benchmarks
 
 ## What this does and does not establish
 
-The chamber measures one declared founder brain in one table world. It does not have a
-body whose commands change what it next senses, a competing need, or a reward that stops
+The chamber measures one declared founder brain in one table world. Its actions change the chain state and, in observed mode, the next sensory
+stage bit. It has no physical body, competing need, or reward that stops
 paying once the skill succeeds. A completion rate at the tabular learner's level with the
 state observed establishes credit across the chain's steps at that length; the same with
 the state hidden establishes a memory horizon the trace does not have on fresh founders
@@ -121,8 +121,9 @@ and learns less, and the probe from stage zero finds a weaker chain than under p
 end. Fourth, with the state hidden no arm beats the stationary ceiling (62) or uniform random
 (42): the sampled policies complete 7 to 33 and the greedy ones 0, the tabular learner with
 one state collapses onto one action, and the frozen newborn's greedy copy answers with one
-action in every situation (one-action share 1.00). The chain's state must be in the
-observation. Fifth, the readout's intrinsic plasticity at its development point (rate 0.1
+action in every situation (one-action share 1.00). For this tested operating point and exposure, supplying observable inventory
+state is the supported recipe; the result does not prove hidden-state learning
+impossible under other experience or configurations. Fifth, the readout's intrinsic plasticity at its development point (rate 0.1
 toward 0.3) lowers every reading under reward learning here (stage accuracy 0.17 to 0.21):
 a six-action readout whose right answer stands near 1 and whose others stand near 0 has a
 mean activation near 0.17, and a pull toward 0.3 flattens it. The gene as declared is a

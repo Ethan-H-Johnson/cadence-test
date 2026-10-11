@@ -9,13 +9,15 @@ the receipt behind it; none of it is a default change.
 ## What breaks a chain
 
 **The chain's state is not in the observation.** If the brain cannot see what it carries,
-the right action depends on history, and the task is a short-term memory task. The working
-trace carries a cue through at most one or two events on fresh founders
+the right action depends on history, and the task is a short-term memory task. The declared
+recall chamber did not establish a reliable working-trace horizon on its fresh founders
 ([recall/5](../benchmarks/recall/README.md#recall5-on-fresh-founders-313-314-and-315-closure-failed-horizons-none-0-and-0),
-[issue 84](https://github.com/muellerberndt/cadence/issues/84)): a four-step inventory is
-beyond it. A policy without that memory does what a memoryless policy must do, it picks the
-action that pays most often in the observation it sees. Put the chain's state in the
-observation: has wood, has stone, has fire. An animal sees what it carries.
+[issue 84](https://github.com/muellerberndt/cadence/issues/84)). Those results do not establish
+recall of a four-step inventory, or a universal upper bound on the trace under every task
+and operating point. Without sufficient history, a policy cannot reliably distinguish
+chain stages that have identical observations; it may settle on one action or keep sampling.
+Expose inventory state when the creature can sense it: has wood, has stone, has fire.
+Keep a hidden-inventory condition as a separate memory test.
 
 **Pay arrives several choices later.** Credit for an earlier action across intervening
 choices is the delayed key-door contract of
@@ -25,8 +27,8 @@ choices and not at ten; at five the critic's rate was the bottleneck, and the ch
 its critic at 5.0 in place of the composed 0.3. Pay only at the end of a four-step chain sits
 at the edge of what the eligibility (`actor_lam` 0.6, `actor_gamma` 0.95) reaches.
 
-**The readout saturates.** A motor readout driven to activation 1.0 is a state a finite step
-cannot leave: the arena's nursery grids record motor probabilities at 0.98 that the aroused
+**The readout saturates.** Near saturation, a finite nudge can produce very little
+activity contrast: the arena's nursery grids record motor probabilities at 0.98 that the aroused
 sampling could not escape, and the key-door chamber records the same latch under punished
 exploration. The readout's intrinsic plasticity (`learning_homeostasis_rate`, founder 0,
 [learning](learning.md)) keeps a readout in range under teaching; under reward learning in
@@ -49,12 +51,16 @@ step ten to thirty times smaller after acquisition held the skill while learning
    the outcome. The world supplies problems, never answers. Label teaching of a sequence is a
    different contract ([issue 121](https://github.com/muellerberndt/cadence/issues/121)) and
    showed its own readout instability in the recall chamber.
-3. **Teach a chain backwards as one-step problems, interleaved.** An episode that begins
-   with the prerequisites granted (start with fire, pay warming up; start with wood and
-   stone, pay making fire) is a one-step task the brain handles. Interleave the
-   starting stages instead of growing a prefix from the beginning.
-4. **Measure every few hundred trips and keep the smallest budget that passes.** A brain
-   drilled on one step past acquisition locks onto that step's action.
+3. **Compare reward schedules on the complete chain.** In the six-seed four-step
+   development chamber, observed-state reward at each correct step reached 204
+   greedy completions per thousand moments; end-only pay reached 42 and randomly
+   interleaved starting stages reached 33. Granted prerequisites can let the brain
+   meet its need before learning the complete chain. Backward lessons are therefore
+   an experimental control, not an established remedy. Disclose supplied shaping
+   rewards and verify the full chain from stage zero under end-only pay.
+4. **Track acquisition and retention at a declared probe schedule.** Longer training
+   can degrade an acquired skill. Select a training budget in development, then
+   freeze it before testing fresh founders; disclose any checkpoint selection.
 5. **Lower the actor step after acquisition.** The ring stage of the arena
    (`actor_eta` 0.001 to 0.003 against the nursery's 0.03) is the measured remedy for a
    skill that erodes under continued learning.
@@ -62,8 +68,9 @@ step ten to thirty times smaller after acquisition held the skill while learning
    one action in every situation while the sampled policy's probabilities move with the
    situation (the arena's fingerprint). Read the probability of the right action per
    situation, and the completion rate of the sampled policy, not only the argmax.
-7. **Give the critic its rate.** With pay several choices after the action, raise
-   `actor_eta_critic` before anything else; the key-door nursery runs it at 5.0.
+7. **Test the critic rate against its control.** The key-door nursery measured
+   `actor_eta_critic=5.0` against the composed 0.3. This is a task-specific operating
+   point, not evidence that raising the rate helps every delayed-credit task.
 
 ## What is not available yet
 

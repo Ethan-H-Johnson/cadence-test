@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Normalize machine-specific storage prefixes in benchmark publication copies,
+  preserving original fingerprints, measurements and historical outcomes in an
+  explicit publication manifest; verify copied bytes and receipt envelope digests.
+
+- Make mathematical and historical-experiment guidance self-contained; distinguish
+  equation qualification from behavioral and physics claims. Trace reference
+  equations are stated directly alongside their checks. Correct sequential-task
+  guidance to reflect the unsuccessful backward-lesson comparison and the bounded
+  scope of recall and critic-rate results. No runtime change.
+
 - The source distribution leaves out receipts no test reads (the competing-skill and chain receipts, the recall receipts except `finite-3`, and the rhythm `native-history-*` receipts); they stay in the repository and in the GitHub release assets: 14.7 MB against 54.8 MB for 0.81.0, of which 35 MB were the competing-skill and recall receipts, against PyPI's 100 MB file limit. The README's CI badge reads the `main` branch only, so a failed run on another branch no longer shows as failing. No runtime change.
 
 ## 0.81.0 — 2026-10-11
