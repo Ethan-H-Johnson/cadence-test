@@ -110,8 +110,12 @@ three of twenty reversed or returned incompletely (their last hundred actions 76
 optimal), and one of them also lost its stable pair in a third of its probes during one rule,
 where the composition without it passed every gate. A record of a punished approach keeps voting against the odour that now
 pays. In a continuing life without `done`, no attempt is replayed: on the prerequisite-chain
-nursery's observed chain, paid only at the completion, the completing action's record spread to
-neighbouring stages and lowered the stage accuracy from 0.67 to 0.33.
+nursery's observed chain, paid only at the completion (six seeds, 20,000 moments), the
+completing action's record spread to neighbouring stages and lowered the stage accuracy from
+0.67 to 0.33. With each completion marked `done=True`, the same memory answered every stage
+right on reset copies and completed 186 chains per thousand moments greedily, where the
+composition without it completed 42 (0 when marked the same way) and a tabular learner with
+the same information 250. Mark the end of each attempt.
 
 ## Settings
 

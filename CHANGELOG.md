@@ -27,7 +27,8 @@
   It is not the default: on the odour nursery's confirmation lives it left a reversal
   incomplete in three of twenty lives where the composition without it passed every gate,
   and in a continuing life without `done` (the prerequisite-chain nursery) it lowered the
-  observed chain's stage accuracy. `Brain.compose` without `memory_choice` builds the 0.82.0
+  observed chain's stage accuracy; with each completion marked `done`, it answered every stage
+  right and completed 186 chains per thousand moments (42 without it). `Brain.compose` without `memory_choice` builds the 0.82.0
   composition unchanged.
   Compatibility: a brain with the episodic memory saves checkpoint format
   `cadence-generic/6`, which earlier releases refuse; every other checkpoint keeps its format.
