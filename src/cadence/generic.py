@@ -2234,8 +2234,9 @@ class Brain:
         ``known``, only for the streams where it is set. The hippocampus unless ``memory``."""
         memory = self.hippocampus if memory is None else memory
         assert memory is not None
-        write = np.ones(len(action), bool) if known is None else np.asarray(known, bool)
-        if not write.any():
+        # Every stream writes when ``known`` is unset: the released write, without a mask.
+        write = None if known is None else np.asarray(known, bool)
+        if write is not None and not write.any():
             return
         # The chosen motor neurons in motor order: one per row, or one per slot.
         rows: np.ndarray = np.arange(len(action))

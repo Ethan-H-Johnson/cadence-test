@@ -23,7 +23,7 @@ provides independent stream records and an immediate residual-write rule.
 | `Efference` copy (opt-in gene) | The fading one-hot of the commands the stream issued | Each admitted live action | Nothing; the copy is cleared |
 | Graph plasticity | Learned synaptic parameters and biases | Supervised contrasts and reward-modulated eligibility | Learned parameters |
 | `SynapticMemory` | Cue-to-outcome associations, with fast per-stream `F` and shared persistent `C` | Observed chosen-action outcomes | Both `F` and `C` |
-| Episodic memory (`memory_choice`, composed founder) | The same store, keyed by the temporal context, voting in the choice | Known outcomes, demonstrations, replay of rewarded attempts | The records; the temporal context and replay path are cleared |
+| Episodic memory (`memory_choice`, composed founder) | The same store keyed by the observation, and a second keyed by the temporal context; their mean votes in the choice | Known outcomes, demonstrations, replay of rewarded attempts | The records; the temporal context and replay path are cleared |
 
 These are functional software mechanisms. Their capacities follow their state
 dimensions, coding and update rules; a human working-memory estimate does not set
@@ -50,7 +50,7 @@ assert answer.shape == (1,)
 ```
 
 The composed brain's hippocampus is an [episodic memory](episodic.md) since 0.83.0: keyed
-by the temporal context, it records known outcomes and demonstrated actions
+by the observation and, in a second store, by the temporal context, it records known outcomes and demonstrated actions
 (`memory_demonstrations`) and its records vote in the choice, added to the motor readout
 before the softmax. With `memory_choice=False` it is the earlier store: `teacher=` teaches
 graph parameters without inserting its label, the reward loop stores the actual chosen

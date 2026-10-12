@@ -22,6 +22,7 @@ def component_brain():
         reward=cd.ActorCriticConfig(
             gamma=0, lam=0, eta=0, eta_bias=0, eta_critic=0,
         ),
+        memory_choice=False,  # the hippocampus of releases before 0.83.0, whose store and writes these contracts pin
     )
 
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- The composed brain's hippocampus is an episodic memory: what happened in a situation
+  before is remembered at once and votes in the next choice there. `Brain.compose` gains
+  the construction settings `memory_choice` (founder on), `memory_context` (0.5),
+  `memory_replay` (8), `memory_demonstrations` (1.0), `memory_expansion` (1,024) and
+  `memory_winners` (24); the [episodic memory guide](docs/episodic.md) explains them. Each
+  record is kept twice, keyed by the observation (place) and by the temporal context, the
+  observation with a fading trace of what the stream saw and did before it; the mean of the
+  two reads is added to the motor readout before the softmax, greedy or sampled. A record
+  is written when an outcome is known (a reward or a punishment, the end of an attempt, or a
+  surprise that woke a calm `live` brain), per stream; a zero outcome in the middle of an
+  attempt leaves it. A caregiver's demonstration is recorded at `memory_demonstrations`. An
+  attempt that ended in reward is replayed backwards along its path of situations, one
+  decision per situation, at the reward discounted by the actor's `gamma`. `ActorCritic.act`
+  and `probabilities` take a `bias` added to the readout before the softmax; eligibility still
+  scores the readout's own policy, so reward consolidates what the memory chose.
+  RESULTS: to be filled from the declared confirmation.
+  Compatibility: `memory_choice=False` builds the hippocampus of earlier releases (keyed by
+  the sensory neurons and read into the motor drive); `Brain(...)` and `Brain.build` keep it by
+  default. A brain with the episodic memory saves checkpoint format `cadence-generic/6`,
+  which earlier releases refuse; checkpoints of earlier formats load unchanged with their
+  own hippocampus. Frozen chamber protocols build the hippocampus they were frozen under
+  (`memory_choice=False`) unless they name the episodic memory's settings.
+
 ## 0.82.0 — 2026-10-12
 
 - The composed brain's context starts quiet and is learned. `Brain.compose` gains the

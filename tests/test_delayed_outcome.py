@@ -53,7 +53,7 @@ def _life(*, youth: int = 0, seed: int = 0, efference: float = 0.3, **options: A
         working_memory_amplitude=0.3,
         efference_amplitude=efference,
         arousal=cd.ArousalConfig(youth=youth),
-        **options,
+        **{"memory_choice": False, **options},  # the hippocampus of releases before 0.83.0, whose 
     )
 
 

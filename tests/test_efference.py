@@ -278,6 +278,7 @@ def test_a_life_with_the_copy_and_arousal_saves_its_pending_moment(tmp_path):
         working_memory_amplitude=0.0,
         efference_amplitude=1.0,
         arousal=cd.ArousalConfig(youth=2),
+        memory_choice=False,  # format cadence-generic/4: no episodic choice
     )
     brain.live(DRIVE)
     brain.live(DRIVE, reward=[1.0])

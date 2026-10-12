@@ -26,7 +26,10 @@ def test_continuing_brain_example():
     report = example["run"]()
     assert report["saved_feedback_continuation_identical"]
     assert report["free_queries_preserved_live_checkpoint"]
-    assert report["associative_writes"] == report["executed_transitions"]
+    # the episodic memory records each paid outcome and each corrective lesson
+    paid = sum(outcome["reward"] != 0 for outcome in report["outcomes"])
+    lessons = sum(outcome["next_teacher"] is not None for outcome in report["outcomes"])
+    assert report["associative_writes"] == paid + lessons
     for outcome in report["outcomes"]:
         # Validate the witness independently of the example's label/execute helpers.
         cue = outcome["cue"]
@@ -80,6 +83,7 @@ PAGES = [
     "docs/cortex.md",
     "docs/brain.md",
     "docs/context.md",
+    "docs/episodic.md",
     "docs/evolution.md",
     "docs/build.md",
     "docs/belief.md",
