@@ -31,10 +31,11 @@ under `end` pay (`need_share`).
 
 The brain is the arena founder of the competing ring (two modules of 48 and 24, sensory
 scale 4, temperature 0.3, actor step 0.03 with a bias step of 0.003, lam 0.6, gamma 0.95,
-critic rate 5, trace 0.3 / 0.1, consolidation 0.05, youth 300). Four arms from birth:
+critic rate 5, trace 0.3 / 0.1, consolidation 0.05, youth 300). Three arms from birth:
 `gene`, the founder; `small`, a tenth of the actor step; `taper`, the gene step for the
-first half of life and a tenth after (`retune`); `homeo`, the readout's intrinsic plasticity
-(`learning_homeostasis_rate` 0.1 toward 0.3). Four controls: `random`, uniform over every
+first half of life and a tenth after (`retune`). The development receipt of 2026-10-11 also
+holds a `homeo` arm, the readout's intrinsic plasticity of 0.81.0, which lowered every reading
+under reward; 0.82.0 removed that gene. Four controls: `random`, uniform over every
 action; `stationary`, uniform over the chain's actions, the memoryless ceiling of the hidden
 mode; `frozen`, the newborn founder acting greedily; `tabular`, Q-learning over the stage it
 observes (one state in the hidden mode; alpha 0.1, epsilon 0.1, gamma 0.95), the competent

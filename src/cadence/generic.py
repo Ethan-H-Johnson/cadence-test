@@ -136,7 +136,10 @@ def _load_composition(value: Any, learner: Learner) -> dict[str, Any] | None:
         return None
     expected = {"inputs", "actions", "modules", "observers", "slots", "lateral",
                 "sensory_scale", "seed"}
-    if not isinstance(value, dict) or set(value) != expected:
+    if isinstance(value, dict) and set(value) == expected:
+        # saved before 0.82.0, whose composition read the trace at the fixed scale 12
+        value = {**value, "working_memory_scale": 12.0}
+    if not isinstance(value, dict) or set(value) != expected | {"working_memory_scale"}:
         raise ValueError("invalid saved composition provenance")
     for name in ("inputs", "actions", "seed"):
         number = value[name]
@@ -152,6 +155,7 @@ def _load_composition(value: Any, learner: Learner) -> dict[str, Any] | None:
         if not numbers and name != "observers":
             raise ValueError(f"invalid saved composition {name}")
     real("saved sensory_scale", value["sensory_scale"], low=0)
+    real("saved working_memory_scale", value["working_memory_scale"], low=0)
     real("saved lateral", value["lateral"])
     populations = learner.brain.connectome.populations
     modules = _region_widths(populations, "module_") + [len(populations.get("association", ()))]
@@ -450,7 +454,7 @@ class Brain:
         memory_decay: float = 0.9,
         memory_rate: float = 1.0,
         memory_amplitude: float = 1.0,
-        working_memory_decay: float = 0.2,
+        working_memory_decay: float = 0.0,
         working_memory_amplitude: float = 3.0,
         working_memory_focus: float = 0.0,
         efference_decay: float = 0.2,
@@ -753,6 +757,7 @@ class Brain:
         observers: Sequence[int] = (),
         lateral: float | None = None,
         sensory_scale: float = 1.0,
+        working_memory_scale: float = 1.2,
         seed: int = 0,
         slots: int | Sequence[int] = 1,
         **options: Any,
@@ -787,12 +792,17 @@ class Brain:
         ``sensory_scale`` sets the initial sensory projection's magnitude;
         its founder value 1.0 preserves the existing wiring. It is a construction
         setting, not a gain that can be retuned after learning.
+        ``working_memory_scale`` sets the initial magnitude of the plastic projection
+        through which the prefrontal region feeds the carried interpretation back to the
+        association region. The prefrontal region holds the copy at
+        ``working_memory_amplitude`` (3.0); the founder scale 1.2 starts its influence on
+        the next settle where amplitude 0.3 at the earlier fixed scale 12 did, and
+        learning strengthens it where the past predicts the outcome. Releases before
+        0.82.0 used 12; pass it to rebuild their composition. It is a construction
+        setting, like ``sensory_scale``.
         ``options`` accepts the constructor's memory settings and every existing
         configuration field as ``learning_<field>``, ``actor_<field>`` or
         ``arousal_<field>``. ``temperature`` aliases ``learning_temperature``.
-        ``learning_homeostasis_rate`` and ``learning_homeostasis_target`` select the
-        readout's intrinsic plasticity, a bias step toward a target activation at every
-        teaching or reward update; the founder rate 0 leaves the readout as composed.
         ``arousal=True`` enables the founder arousal config; a mapping patches
         those founders. Supplied config objects remain full replacements.
         ``resting_bias`` initializes processing-region biases to a selected nonnegative
@@ -800,7 +810,7 @@ class Brain:
         A positive ``efference_amplitude`` adds the efference copy: one ``efference``
         neuron per motor neuron, driven by the fading one-hot of the command the
         stream issued (``efference_decay``) and read by the association region
-        through a plastic projection of the working trace's scale. The founder
+        through a plastic projection of founder scale 12. The founder
         value zero builds the brain without it, byte-identical to the released
         composition; the copy is a gene to select against that control.
         Use ``genome``/``Genome`` for custom ports, sparsity and named wiring.
@@ -815,6 +825,7 @@ class Brain:
 
         inputs, actions = size(inputs), size(actions)
         sensory_scale = real("sensory_scale", sensory_scale, low=0)
+        working_memory_scale = real("working_memory_scale", working_memory_scale, low=0)
         if lateral is None:
             lateral = _default_lateral(max(slot_sizes(actions, slots)))
         if (
@@ -856,7 +867,9 @@ class Brain:
         projections.extend(
             (
                 Projection("association", "motor"),
-                Projection("prefrontal", "association", scale=12.0, reciprocal=False),
+                Projection(
+                    "prefrontal", "association", scale=working_memory_scale, reciprocal=False
+                ),
             )
         )
         observed = [*names, "motor"]
@@ -881,6 +894,7 @@ class Brain:
             "slots": [int(width) for width in result.learner.slot_sizes],
             "lateral": lateral,
             "sensory_scale": sensory_scale,
+            "working_memory_scale": working_memory_scale,
             "seed": int(seed),
         }
         return result
@@ -912,7 +926,8 @@ class Brain:
         options = dict(genes)
         construction = {
             "inputs", "actions", "modules", "observers", "lateral", "sensory_scale",
-            "resting_bias", "slots", "seed", "episodic", "backend", "device", "connectome",
+            "working_memory_scale", "resting_bias", "slots", "seed", "episodic", "backend",
+            "device", "connectome",
         }
         for name in options:
             if name in construction:

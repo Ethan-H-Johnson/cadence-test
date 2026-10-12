@@ -789,9 +789,7 @@ class ActorCritic:
             raise ValueError("optimizer moments must remain finite")
         critic_weights, critic_bias = self._critic_candidate(td_error, delta, observed)
         next_brain = self.learner.brain
-        # padding rows teach nothing, so they do not set the readout's operating point either
-        real = free.activation if observed.all() else free.activation[observed]
-        report = self.learner.apply(step_scale, step_bias, activation=real)
+        report = self.learner.apply(step_scale, step_bias)
         self.w_critic, self.b_critic = critic_weights, critic_bias
         # a finished row forgets its traces
         if done.any():
@@ -977,11 +975,7 @@ class ActorCritic:
         d = d[:, None]
         next_brain = self.learner.brain
         report = self.learner._apply_device(
-            kernel,
-            cfg.eta * (d * trace).mean(dim=0),
-            cfg.eta_bias * (d * trace_bias).mean(dim=0),
-            state=free,
-            observed=None if observed.all() else observed,
+            kernel, cfg.eta * (d * trace).mean(dim=0), cfg.eta_bias * (d * trace_bias).mean(dim=0)
         )
         self.w_critic, self.b_critic = critic_weights, critic_bias
         if done.any():  # a finished stream forgets its traces

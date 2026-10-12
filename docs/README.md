@@ -22,7 +22,8 @@ The [index](index.md) is the catalogue; this page gives a reading order.
    records actual outcomes, correction, settling work and saved continuation.
 3. Use [composition](brain.md) and [continuous interaction](continuous.md) to
    connect your own environment. Declare what the brain observes, what its
-   actions do, and when the body reports each outcome.
+   actions do, and when the body reports each outcome. Read [context](context.md)
+   for what the brain carries between moments and how to wire it for retention.
 4. Read [contracts](contracts.md) before changing a solver or learning rule,
    and [task design](task-design.md) before claiming acquired behavior.
 
