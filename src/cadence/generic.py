@@ -2008,7 +2008,8 @@ class Brain:
         place = np.asarray(memory.recall(np.asarray(x, dtype=float)), dtype=float)
         if self.context_memory is None or key is None:
             return place
-        return 0.5 * (place + np.asarray(self.context_memory.recall(key), dtype=float))
+        context = np.asarray(self.context_memory.recall(key), dtype=float)
+        return np.asarray(0.5 * (place + context))
 
     def _decided(self, batch: int) -> np.ndarray | None:
         """The context key of each stream's last decision, when it belongs to this batch."""
