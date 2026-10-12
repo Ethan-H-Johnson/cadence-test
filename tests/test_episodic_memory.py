@@ -75,6 +75,8 @@ def test_the_episodic_settings_are_validated_construction_settings():
         episodic(3, 2, memory_choice=1)
     with pytest.raises(ValueError, match="need memory_choice"):
         cd.Brain.compose(3, 2, memory_context=0.5)
+    with pytest.raises(ValueError, match="need memory_choice"):
+        cd.Brain.compose(3, 2, memory_expansion=1024)
     connectome = episodic(3, 2, seed=2).connectome
     with pytest.raises(ValueError, match="needs the episodic memory"):
         cd.Brain(connectome, episodic=False, memory_choice=True)
@@ -275,3 +277,25 @@ def test_a_choosing_memory_is_not_read_into_the_drive(monkeypatch):
     brain.stimulus(one_hot(0, 3))
     brain.imagine([one_hot(0, 3), one_hot(1, 3)])
     brain.act(one_hot(0, 3))
+
+
+@pytest.mark.parametrize("tamper", ["no_context_store", "wide_place_key", "long_path"])
+def test_a_corrupt_episodic_checkpoint_is_refused(tmp_path, tamper):
+    brain = episodic(3, 2, seed=15)
+    for t in range(3):
+        brain.step(one_hot(t, 3), reward=None if t == 0 else [0.0])
+    path = brain.save(tmp_path / "brain.npz")
+    with np.load(path) as saved:
+        data = {name: saved[name].copy() for name in saved.files}
+    meta = json.loads(str(data["generic"]))
+    if tamper == "no_context_store":
+        meta["episodic"]["context_memory"] = None
+    elif tamper == "wide_place_key":
+        meta["hippocampus"]["pre"] = 5
+    else:
+        data["episode/path/lengths"] = data["episode/path/lengths"] + 20
+    data["generic"] = np.array(json.dumps(meta))
+    corrupt = tmp_path / "corrupt.npz"
+    np.savez(corrupt, **data)
+    with pytest.raises(ValueError):
+        cd.Brain.load(corrupt)

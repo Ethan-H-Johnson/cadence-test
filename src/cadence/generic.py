@@ -14,7 +14,7 @@
   working memory of the moments before;
 * a default hippocampal-memory analogue, ``SynapticMemory`` from sensory to motor
   neurons, recording outcomes quickly and consolidating them through repetition/salience.
-  With ``memory_choice`` (the founder of ``Brain.compose``) it is an episodic memory: its
+  With ``memory_choice=True`` (opt-in) it is an episodic memory: its
   records of outcomes and of demonstrated actions are kept twice, keyed by the observation
   (place) and by the temporal context of what the stream saw and did (context), the two
   reads vote in the choice, and an attempt that ended in reward is replayed backwards along
@@ -621,12 +621,13 @@ class Brain:
         memory_winners = _count("memory_winners", memory_winners, low=1)
         if memory_choice and not episodic:
             raise ValueError("memory_choice needs the episodic memory")
-        if not memory_choice and (memory_context or memory_replay or memory_demonstrations):
+        if not memory_choice and (
+            memory_context or memory_replay or memory_demonstrations or memory_expansion
+        ):
             raise ValueError(
-                "memory_context, memory_replay and memory_demonstrations need memory_choice"
+                "memory_context, memory_replay, memory_demonstrations and memory_expansion "
+                "need memory_choice"
             )
-        if memory_expansion and not episodic:
-            raise ValueError("memory_expansion separates the episodic memory's keys")
         working_memory_decay = real("working_memory_decay", working_memory_decay, low=0)
         efference_decay = real("efference_decay", efference_decay, low=0)
         if working_memory_decay >= 1 or efference_decay >= 1:
@@ -2578,7 +2579,8 @@ class Brain:
                 temporal = _load_memory(
                     episodic["context_memory"], data, learner.brain.connectome.n, "temporal/"
                 )
-                assert temporal is None or isinstance(temporal, SynapticMemory)
+                if temporal is not None and not isinstance(temporal, SynapticMemory):
+                    raise ValueError("an episodic memory's context records consolidate")
                 result.context_memory = temporal
                 for name in ("context", "decision"):
                     if "episode/" + name in data:
