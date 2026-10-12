@@ -50,9 +50,9 @@ These defaults are new in 0.82.0. Earlier releases read the copy back ten times 
 strongly from birth (scale 12) and averaged it with older moments (retention 0.2). A carry
 that loud drowns what the brain sees right now: an untrained brain completed a fully observed
 chain of four actions less often than uniform random, and a brain whose history did not matter
-could not learn to ignore it. A carry that starts quiet but is held clearly avoids both: the
-present decides at birth, and learning raises the past where it pays. Older moments are not
-lost at retention 0; they reach the present through the interpretations they shaped.
+could not learn to ignore it. A carry that starts quiet but is held clearly lets the present
+decide at birth and lets learning raise the past where it pays. Older moments are not lost at
+retention 0; they reach the present through the interpretations they shaped.
 
 ## Wire the brain for better retention
 

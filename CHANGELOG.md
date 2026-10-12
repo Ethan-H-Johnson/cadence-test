@@ -16,9 +16,10 @@
   composition an untrained brain completed a fully observed four-step chain less often than
   uniform random, and on a continuing contextual bandit whose history does not matter the
   hit rate stayed at chance; the quiet amplitude alone lost the delayed response learned
-  from reward. On development seeds the new composition learned both: the bandit to a mean
-  hit rate of 0.84 (5 of 6 seeds above 0.9, against 0 of 6), and the delayed response of
-  `tests/test_generic.py` from reward in 6 of 6 seeds. `Brain.build` keeps its
+  from reward. On development seeds the composed brain now reaches a mean hit rate of 0.60
+  on that bandit (seeds 0 to 5, two above 0.9; the earlier composition 0.25, none) and still
+  learns the delayed response of `tests/test_generic.py` from reward in 6 of 6 seeds (8 to
+  13; amplitude 0.3 at scale 12 learned 3). `Brain.build` keeps its
   `memory_scale` of 12. The new [context guide](docs/context.md) explains what a brain
   carries, how to wire it for retention and which settings to change.
   Compatibility: a composed checkpoint records `working_memory_scale` in its composition;
