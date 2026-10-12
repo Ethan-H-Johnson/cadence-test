@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The sequential-task guide adds the measured continuation after teaching: a brain left alone
+  through `live` keeps a taught chain where `step` erodes it; lowering the step stays the remedy
+  where surprises are mostly punishments. No runtime change.
+
 ## 0.82.0 — 2026-10-12
 
 - The composed brain's context starts quiet and is learned. `Brain.compose` gains the
