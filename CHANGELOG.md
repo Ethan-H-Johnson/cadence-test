@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.82.0 — 2026-10-12
 
 - The composed brain's context starts quiet and is learned. `Brain.compose` gains the
   construction setting `working_memory_scale`, the initial scale of the plastic projection
