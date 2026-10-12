@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+- The composed brain's context starts quiet and is learned. `Brain.compose` gains the
+  construction setting `working_memory_scale`, the initial scale of the plastic projection
+  through which the prefrontal region feeds the carried interpretation back to the
+  association cortex: founder 1.2, where earlier releases fixed 12. The trace keeps
+  amplitude 3.0, so the prefrontal region holds the copy as clearly as before, and its
+  retention default (`working_memory_decay`, also the constructor's) is now 0: the trace
+  carries exactly the last interpretation, and older moments reach the present through the
+  interpretations they shaped. A newborn reads its context about as strongly as amplitude 0.3 at the
+  old scale did, the operating point of the chain, competing, key-door, recall and odour
+  chambers, while every update of that projection scales with the ten times clearer copy, so
+  learning raises the past's influence where it predicts the outcome. With the earlier
+  composition an untrained brain completed a fully observed four-step chain less often than
+  uniform random, and on a continuing contextual bandit whose history does not matter the
+  hit rate stayed at chance; the quiet amplitude alone lost the delayed response learned
+  from reward. On development seeds the composed brain now reaches a mean hit rate of 0.60
+  on that bandit (seeds 0 to 5, two above 0.9; the earlier composition 0.25, none) and still
+  learns the delayed response of `tests/test_generic.py` from reward in 6 of 6 seeds (8 to
+  13; amplitude 0.3 at scale 12 learned 3). `Brain.build` keeps its
+  `memory_scale` of 12. The new [context guide](docs/context.md) explains what a brain
+  carries, how to wire it for retention and which settings to change.
+  Compatibility: a composed checkpoint records `working_memory_scale` in its composition;
+  one saved before 0.82.0 loads as 12 with its own synapses and settings, and releases
+  before 0.82.0 refuse 0.82.0 composed checkpoints as invalid composition provenance.
+  Frozen chamber protocols build the composition they were frozen under (scale 12, and
+  retention 0.2 where the key-door and odour protocols leave it unnamed); the night-replay
+  chamber's `defaults` setting follows the current composition. Benchmark READMEs that
+  name the composed default describe the composition of their own release.
+
+- Remove the readout's intrinsic plasticity of 0.81.0 (`LearnerConfig.homeostasis_rate`
+  and `homeostasis_target`, `learning_homeostasis_*` in `compose` and `retune`, and
+  `homeostasis_step` in learning reports). A set point per action neuron constrains how
+  often each action is chosen; under reward it flattened a six-action policy, and the
+  prerequisite-chain nursery drops its homeostasis arm. Checkpoints written with the
+  founder rate 0 load unchanged; one written with a positive rate (`cadence-checkpoint/3`)
+  is refused with a message naming 0.81 as the release that reads it.
+
 - Clarify continuing-life state, model-specific agreement and residuals, and the
   distinction between solver updates, environment time and learning events.
   Make current architectural guidance self-contained. No runtime or default change.

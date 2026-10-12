@@ -27,8 +27,10 @@ action index. The default has one 64-neuron processing region. For more regions,
 `modules=(16, 8)` creates two; the last is the association region.
 Sensory input reaches the first, the association
 region exchanges signals with motor neurons, and its working trace enters through
-context neurons. `SynapticMemory` records the actually chosen action's reward;
-its fast and persistent associations influence later choices.
+context neurons: each moment's settled interpretation is carried into the next settle
+([context](context.md) explains it and how to wire for retention). `SynapticMemory`
+records the actually chosen action's reward; its fast and persistent associations
+influence later choices.
 
 `Brain.compose(..., efference_amplitude=1.0)` adds the efference copy of the
 issued command: one `efference` neuron per motor neuron, driven by the fading
@@ -101,8 +103,8 @@ retain their own defaults, listed in the [API reference](api.md).
 | Named setting | Composed founder | Used by |
 | --- | --- | --- |
 | `sensory_scale` | `1.0` | Initial sensory projection; construction only |
+| `working_memory_scale` | `1.2` | Initial projection that reads the carried interpretation back; construction only ([context](context.md)) |
 | `learning_eta`, `learning_eta_bias` | `0.5`, `0.05` | Teaching with `step(teacher=...)`, `fit` or the learner; `live` does not read these rates |
-| `learning_homeostasis_rate`, `learning_homeostasis_target` | `0.0`, `0.3` | The readout's intrinsic plasticity at every teaching or reward update, including aroused `live`; the founder rate leaves the readout as composed |
 | `actor_eta`, `actor_eta_bias` | `1.0`, `0.05` | Reward plasticity in `step`/`learn`, and aroused `live` |
 | `actor_eta_critic` | `0.3` | Value updates from those same learned outcomes |
 | `temperature` | `0.2` | Teaching softmax and sampled action policy; arousal can add exploration heat |
@@ -119,7 +121,7 @@ retain their own defaults, listed in the [API reference](api.md).
 | `actor_normalize`, `actor_momentum` | `0.0`, `0.0` | Reward optimizer |
 | `actor_dopamine_cap`, `actor_dopamine_center`, `actor_dopamine_floor` | `1.0`, `0.0`, `0.0` | Reward modulation |
 | `actor_center_scale`, `actor_critic_normalize`, `actor_critic_signal` | `True`, `True`, `"auto"` | Dopamine units and critic update law |
-| `working_memory_decay`, `working_memory_amplitude`, `working_memory_focus` | `0.2`, `3.0`, `0.0` | Continuing working trace |
+| `working_memory_decay`, `working_memory_amplitude`, `working_memory_focus` | `0.0`, `3.0`, `0.0` | Continuing working trace: the carried interpretation ([context](context.md)) |
 | `efference_decay`, `efference_amplitude` | `0.2`, `0.0` | Issued-command trace; a positive amplitude at construction adds its population |
 | `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `1.0`, `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
 | `arousal_threshold`, `arousal_decay`, `arousal_tolerance`, `arousal_floor` | `0.2`, `0.9`, `2.0`, `0.1` | Routine/aroused decision in `live`, when arousal is enabled |
@@ -171,7 +173,7 @@ A pending sampled action retains its actual eligibility and behavior temperature
 Rate changes apply when its next real outcome is learned. A change of
 `learning_beta` is refused while that action awaits feedback, because the pending
 contrast was formed at the earlier nudge scale; consume its outcome before
-changing the scale. Construction choices such as `sensory_scale`, topology,
+changing the scale. Construction choices such as `sensory_scale`, `working_memory_scale`, topology,
 backend and `resting_bias` cannot be retuned, nor can a retune add a missing
 memory, efference or arousal component. Create those components when composing.
 

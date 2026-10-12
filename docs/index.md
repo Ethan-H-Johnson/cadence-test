@@ -30,9 +30,11 @@ For a version-pinned reading order, use the
 1. [The continuing world model](world-model.md): lifecycle, design intent and current boundaries.
 2. [Quickstart](quickstart.md): run one brain through observations and outcomes.
 3. [Build a brain](brain.md): compose System 1, add optional observers and save it.
-4. [Continuous interaction](continuous.md): observations, actual rewards,
+4. [Context](context.md): what the brain carries from moment to moment, and how to wire it
+   for better retention.
+5. [Continuous interaction](continuous.md): observations, actual rewards,
    demonstrations, memory and private imagination.
-5. [Contracts](contracts.md): numerical qualification, learning and refusal.
+6. [Contracts](contracts.md): numerical qualification, learning and refusal.
 
 `Brain.compose(inputs, actions, modules=(64,), observers=())` includes working
 and consolidating memory. Add observer widths for recursive feedback. Actions
@@ -46,6 +48,7 @@ require a qualified full state; more regions do not guarantee better decisions.
 | Routine and repair in one continuing stream; reversal after long experience | [Routine and repair](continuous.md#routine-and-repair-live), [odour nursery](../benchmarks/reversal/README.md) |
 | Isolated graph learning or calibration controls | [Learning rule](learning.md), [task recipes](tasks.md) |
 | Acquisition and retention receipts | [Acquisition protocol](../benchmarks/acquisition/README.md) |
+| Context across moments, retention, sequences | [Context](context.md), [sequential tasks](sequential-tasks.md) |
 | Trace and associative-memory rules | [Memory](memory.md), [continued learning](continuous.md) |
 | Event records, dreaming and sleep consolidation | [Record patch](record-patch.md), [day/night acquisition](record-patch.md#acquisition-in-two-phases-records-by-day-weights-by-night) |
 | Learned environmental consequences and private action planning | [Interaction](interaction.md), [temporal model](temporal.md), [planning](planning.md) |

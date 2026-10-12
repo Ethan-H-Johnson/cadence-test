@@ -60,12 +60,15 @@ and query old and new responses without teachers. Rehearsal can protect recall
 and must be counted as additional teaching or record writes. Finite storage and
 successful bounded recall do not establish lifelong retention.
 
-Working-trace amplitude and decay are task-dependent settings. A stronger trace
-retains earlier context and can also interfere with acquiring a new relation,
-and neither a smaller amplitude nor a different decay is a general fix. Where
-the previous moment carries nothing the decision needs, the trace is
-interference the actor has to learn away: on a continuing contextual bandit the
-composed default amplitude held the hit rate at chance over several seeds while
+Working-trace amplitude, retention and scale are task-dependent settings. Since
+0.82.0 the composed brain carries exactly its last interpretation (retention 0),
+holds it clearly in the prefrontal region (amplitude 3.0) and reads it back through
+plastic synapses that start quiet (`working_memory_scale` 1.2, where earlier releases
+used 12); [context](context.md) explains it. A stronger trace retains earlier context
+and can also interfere with acquiring a new relation, and no single setting is a
+general fix. Where the previous moment carries nothing the decision needs, the trace
+is interference the actor has to learn away: on a continuing contextual bandit the
+composition of earlier releases held the hit rate at chance over several seeds while
 amplitude 0.0 reached 1.0, and a small amplitude with a smaller actor rate also
 reached 1.0
 ([night-replay chamber](../benchmarks/replay/README.md#the-working-trace-on-a-continuing-bandit)).
