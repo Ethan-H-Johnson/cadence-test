@@ -75,6 +75,7 @@ try:
         seed=7,
         backend="torch" if cuda else "cpu",
         device="cuda:0" if cuda else None,
+        memory_choice=False,  # the composition the frozen timings measured
     )
     if args.backend == "cuda32":
         graph = brain.brain

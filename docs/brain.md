@@ -28,9 +28,10 @@ action index. The default has one 64-neuron processing region. For more regions,
 Sensory input reaches the first, the association
 region exchanges signals with motor neurons, and its working trace enters through
 context neurons: each moment's settled interpretation is carried into the next settle
-([context](context.md) explains it and how to wire for retention). `SynapticMemory`
-records the actually chosen action's reward; its fast and persistent associations
-influence later choices.
+([context](context.md) explains it and how to wire for retention). The hippocampus is an
+episodic memory: it records what happened in each situation, keyed by what the stream saw
+and did before, remembers demonstrated actions, replays an attempt that ended in reward, and
+its records vote in every choice ([episodic memory](episodic.md)).
 
 `Brain.compose(..., efference_amplitude=1.0)` adds the efference copy of the
 issued command: one `efference` neuron per motor neuron, driven by the fading
@@ -124,6 +125,8 @@ retain their own defaults, listed in the [API reference](api.md).
 | `working_memory_decay`, `working_memory_amplitude`, `working_memory_focus` | `0.0`, `3.0`, `0.0` | Continuing working trace: the carried interpretation ([context](context.md)) |
 | `efference_decay`, `efference_amplitude` | `0.2`, `0.0` | Issued-command trace; a positive amplitude at construction adds its population |
 | `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `1.0`, `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
+| `memory_choice`, `memory_context`, `memory_replay`, `memory_demonstrations` | `True`, `0.3`, `8`, `1.0` | The episodic memory: records vote in the choice, the share of the past in their key, replay of rewarded attempts, remembered demonstrations; construction only ([episodic memory](episodic.md)) |
+| `memory_expansion`, `memory_winners` | `1024`, `24` | Separation of the episodic memory's keys; construction only |
 | `arousal_threshold`, `arousal_decay`, `arousal_tolerance`, `arousal_floor` | `0.2`, `0.9`, `2.0`, `0.1` | Routine/aroused decision in `live`, when arousal is enabled |
 | `arousal_fast`, `arousal_slow` | `0.05`, `0.005` | Recent and long-run outcome statistics in `live` |
 | `arousal_heat`, `arousal_youth` | `2.0`, `100` | Exploration and initial aroused moments in `live` |

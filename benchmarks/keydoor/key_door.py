@@ -157,6 +157,12 @@ def make_brain(
     # leave unnamed was 0.2, and the carried interpretation was read back at scale 12
     options["working_memory_decay"] = point.get("trace_decay", 0.2)
     options["working_memory_scale"] = point.get("trace_scale", 12.0)
+    # and the hippocampus of releases before 0.83.0, read into the drive; a protocol that
+    # names the episodic memory's settings builds that memory
+    options["memory_choice"] = bool(point.get("memory_choice", False))
+    for key in ("memory_context", "memory_replay", "memory_demonstrations"):
+        if key in point:
+            options[key] = point[key]
     if "consolidation" in point:
         options["consolidation"] = point["consolidation"]
     if point.get("efference_amplitude"):

@@ -207,7 +207,7 @@ def make_brain(recipe, seed, args):
     options = {"resting_bias": effective["resting_bias"]} if effective["resting_bias"] else {}
     brain = Brain.compose(
         inputs=650, actions=36, modules=(32, 16), observers=(), seed=seed, learning=cfg,
-        lateral=effective["lateral"], **options,
+        lateral=effective["lateral"], memory_choice=False, **options,
     )
     if effective["freeze_motor_lateral"]:
         graph = brain.brain

@@ -99,6 +99,7 @@ def make_brain(seed):
         consolidation=0.05, episodic=True, working_memory_decay=0.2,
         working_memory_amplitude=3,
         working_memory_scale=12.0,  # the composition of releases before 0.82.0
+        memory_choice=False,  # the hippocampus of releases before 0.83.0
     )
 
 

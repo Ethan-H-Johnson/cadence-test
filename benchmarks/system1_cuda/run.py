@@ -241,6 +241,7 @@ def main():
                 seed=args.seed,
                 backend="torch" if cuda else "cpu",
                 device="cuda:0" if cuda else None,
+                memory_choice=False,  # the composition the frozen timings measured
             )
             brain.learner.config = replace(brain.learner.config, **protocol["learning"])
             brain.basal_ganglia.config = replace(brain.basal_ganglia.config, **protocol["reward"])

@@ -72,6 +72,7 @@ def make_brain(recipe, seed, args):
         seed=seed,
         learning=LearnerConfig(**effective["learning"]),
         lateral=0.0,
+        memory_choice=False,  # the hippocampus of releases before 0.83.0
     )
 
 
