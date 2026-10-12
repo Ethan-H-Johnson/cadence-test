@@ -144,6 +144,8 @@ def _count(name: str, value: Any, low: int = 0) -> int:
 _EPISODIC_FOUNDERS: dict[str, Any] = {
     "memory_choice": True,
     "memory_context": 0.5,
+    # a known outcome moves a record halfway: remembered at once, revised by repetition
+    "memory_rate": 0.5,
     "memory_replay": 8,
     "memory_demonstrations": 1.0,
     "memory_expansion": 1024,
@@ -998,9 +1000,10 @@ class Brain:
         situation it was shown in. When an attempt ends in reward, the decisions
         on its path are recorded again, backwards, at the reward discounted per step
         (``memory_replay`` steps, founder 8); a decision that left its situation unchanged
-        is not on the path. Keys are separated (``memory_expansion`` 1,024 cells,
-        ``memory_winners`` 24). ``memory_choice=False`` builds the hippocampus of releases
-        before 0.83.0, read into the motor drive; ``episodic=False`` builds none.
+        is not on the path. A known outcome moves a record halfway (``memory_rate`` 0.5;
+        1.0 lets the last outcome replace it). Keys are separated (``memory_expansion``
+        1,024 cells, ``memory_winners`` 24). ``memory_choice=False`` builds the hippocampus
+        of releases before 0.83.0, read into the motor drive; ``episodic=False`` builds none.
         Use ``genome``/``Genome`` for custom ports, sparsity and named wiring.
         """
 

@@ -36,7 +36,9 @@ attempt ended in reward ───────► replay: the decisions on its pa
   punishment, the end of an attempt (`done`), or a surprise that woke a calm `live` brain. A
   zero outcome in the middle of an attempt is not yet an outcome and leaves the record as it
   was. A caregiver's demonstration (`teacher=`) is recorded for the situation it was shown in,
-  at `memory_demonstrations`, as if the shown action had paid that much.
+  at `memory_demonstrations`, as if the shown action had paid that much. A write moves the
+  record halfway toward the outcome (`memory_rate` 0.5): one outcome is remembered at once,
+  and one misleading outcome cannot erase what repeated outcomes established.
 - **Replay.** When an attempt ends in reward, the decisions on its path are recorded again,
   backwards, at the reward discounted by the actor's `gamma` per step, up to `memory_replay`
   steps. The path keeps one decision per situation, the one that left it: an action that left
@@ -68,11 +70,12 @@ action = brain.live([[1.0, 0.0, 0.0]])                      # the record votes f
 | `memory_context` | `0.5` | The share of the past in the context key; 0 keeps the place records alone |
 | `memory_replay` | `8` | How many decisions back an attempt that ended in reward is replayed |
 | `memory_demonstrations` | `1.0` | The value at which a shown action is recorded; 0 records none |
+| `memory_rate` | `0.5` | How far one write moves a record toward the outcome; 1.0 lets the last outcome replace it |
 | `memory_expansion`, `memory_winners` | `1024`, `24` | Separation of the keys; 0 cells use the key as it is |
 
-These are construction settings: pass them to `Brain.compose(...)`; `retune` refuses them. The
-existing store settings `memory_rate`, `memory_decay`, `memory_amplitude` and
-`consolidation` keep their meaning. `Brain(...)` and `Brain.build(...)` keep the earlier
+These are construction settings: pass them to `Brain.compose(...)`; `retune` refuses them,
+except `memory_rate`, a store setting like `memory_decay`, `memory_amplitude` and
+`consolidation`, which `retune` changes for both stores together. `Brain(...)` and `Brain.build(...)` keep the earlier
 hippocampus unless `memory_choice=True` is passed.
 
 ## Settings
@@ -83,6 +86,7 @@ hippocampus unless `memory_choice=True` is passed.
 | `memory_replay` | rewards come at the end of long chains of decisions | (0 replays nothing) |
 | `memory_demonstrations` | shown actions should outweigh the rewards of the brain's own trials | the caregiver is unreliable (0 records no demonstration) |
 | `memory_expansion` | many situations must be told apart | (0 uses the key unseparated) |
+| `memory_rate` | the world changes quickly and the latest outcome is the best guide | outcomes are noisy, or one failure should not undo a learned skill |
 
 Mark the end of an attempt with `done=True` where the world has one: a chain completed, a
 trial over, a game lost. The end makes the outcome known, starts the next attempt with a fresh

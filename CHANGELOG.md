@@ -6,7 +6,9 @@
   before is remembered at once and votes in the next choice there. `Brain.compose` gains
   the construction settings `memory_choice` (founder on), `memory_context` (0.5),
   `memory_replay` (8), `memory_demonstrations` (1.0), `memory_expansion` (1,024) and
-  `memory_winners` (24); the [episodic memory guide](docs/episodic.md) explains them. Each
+  `memory_winners` (24), and its `memory_rate` founder is 0.5 (1.0 without the episodic
+  memory): a known outcome moves a record halfway. The
+  [episodic memory guide](docs/episodic.md) explains them. Each
   record is kept twice, keyed by the observation (place) and by the temporal context, the
   observation with a fading trace of what the stream saw and did before it; the mean of the
   two reads is added to the motor readout before the softmax, greedy or sampled. A record

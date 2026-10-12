@@ -124,7 +124,7 @@ retain their own defaults, listed in the [API reference](api.md).
 | `actor_center_scale`, `actor_critic_normalize`, `actor_critic_signal` | `True`, `True`, `"auto"` | Dopamine units and critic update law |
 | `working_memory_decay`, `working_memory_amplitude`, `working_memory_focus` | `0.0`, `3.0`, `0.0` | Continuing working trace: the carried interpretation ([context](context.md)) |
 | `efference_decay`, `efference_amplitude` | `0.2`, `0.0` | Issued-command trace; a positive amplitude at construction adds its population |
-| `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `1.0`, `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
+| `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `0.5` (`1.0` with `memory_choice=False`), `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
 | `memory_choice`, `memory_context`, `memory_replay`, `memory_demonstrations` | `True`, `0.5`, `8`, `1.0` | The episodic memory: place and context records vote in the choice, the share of the past in the context key, replay of rewarded attempts, remembered demonstrations; construction only ([episodic memory](episodic.md)) |
 | `memory_expansion`, `memory_winners` | `1024`, `24` | Separation of the episodic memory's keys; construction only |
 | `arousal_threshold`, `arousal_decay`, `arousal_tolerance`, `arousal_floor` | `0.2`, `0.9`, `2.0`, `0.1` | Routine/aroused decision in `live`, when arousal is enabled |
