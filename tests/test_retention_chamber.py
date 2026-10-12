@@ -88,7 +88,7 @@ def test_constructor_preserves_the_ordinary_declared_gene(chamber):
     # the chamber froze the working trace of its release (amplitude 3, retention 0.2, scale 12)
     ordinary = cd.Brain.compose(8, 2, modules=(32,), lateral=-0.5, seed=0,
                                 working_memory_amplitude=3.0, working_memory_decay=0.2,
-                                working_memory_scale=12.0, memory_choice=False)
+                                working_memory_scale=12.0)
     left, right = chamber.model_identity(candidate), chamber.model_identity(ordinary)
     assert left == right
     assert left["learner"]["normalize"] == left["actor"]["normalize"] == 0
@@ -99,7 +99,7 @@ def test_constructor_preserves_the_ordinary_declared_gene(chamber):
 
 def test_observational_capture_preserves_public_actual_reward_checkpoint(chamber, tmp_path):
     # Smaller, frozen-policy component fixture, not a development brain or recipe probe.
-    brain = cd.Brain.compose(8, 2, modules=(4,), seed=9, memory_choice=False,
+    brain = cd.Brain.compose(8, 2, modules=(4,), seed=9,
                              learning=cd.LearnerConfig(eta=0, eta_bias=0, free_steps=1024,
                                                        nudged_steps=12, tolerance=0.003),
                              reward=cd.ActorCriticConfig(eta=0, eta_bias=0, eta_critic=0,
@@ -135,7 +135,7 @@ def test_capture_rejects_unexecuted_action_values_before_a_write(chamber):
 
 def test_saved_pending_private_refusal_and_next_action_contract(chamber, tmp_path):
     # Frozen-policy preservation fixture: no candidate actor/plastic-graph development.
-    brain = cd.Brain.compose(8, 2, modules=(32,), seed=3, memory_choice=False,
+    brain = cd.Brain.compose(8, 2, modules=(32,), seed=3,
                              learning=cd.LearnerConfig(eta=0, eta_bias=0, free_steps=1024,
                                                        nudged_steps=12, tolerance=0.003),
                              reward=cd.ActorCriticConfig(eta=0, eta_bias=0, eta_critic=0,

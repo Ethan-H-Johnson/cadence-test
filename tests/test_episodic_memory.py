@@ -10,6 +10,11 @@ import pytest
 import cadence as cd
 
 
+def episodic(*args, **options) -> cd.Brain:
+    """``Brain.compose`` with the episodic memory, unless ``memory_choice`` is named."""
+    return cd.Brain.compose(*args, **{"memory_choice": True, **options})
+
+
 def one_hot(index: int, width: int, rows: int = 1) -> np.ndarray:
     x = np.zeros((rows, width))
     x[:, index] = 1.0
@@ -33,10 +38,12 @@ def consolidated(brain: cd.Brain, x: np.ndarray, action: int) -> float:
     return float(brain.hippocampus.recall(np.repeat(x, 3, axis=0))[0, action])
 
 
-def test_the_composed_brain_chooses_with_an_episodic_memory():
-    brain = cd.Brain.compose(3, 2, seed=1)
-    episodic = brain.describe()["episodic"]
-    assert {key: episodic[key] for key in ("choice", "context", "replay", "demonstrations")} == {
+def test_the_episodic_memory_is_an_opt_in_preset_of_the_composed_brain():
+    assert cd.Brain.compose(3, 2, seed=1).describe()["episodic"] is None
+    brain = episodic(3, 2, seed=1)
+    assert brain.hippocampus.rate == 0.5
+    described = brain.describe()["episodic"]
+    assert {key: described[key] for key in ("choice", "context", "replay", "demonstrations")} == {
         "choice": True, "context": 0.5, "replay": 8, "demonstrations": 1.0
     }
     np.testing.assert_array_equal(brain.hippocampus.pre, brain.sensory_index)
@@ -45,11 +52,11 @@ def test_the_composed_brain_chooses_with_an_episodic_memory():
     )
     for memory in (brain.hippocampus, brain.context_memory):
         assert memory.separator.expansion == 1024 and memory.separator.winners == 24
-    assert cd.Brain.compose(3, 2, seed=1, memory_context=0.0).context_memory is None
-    released = cd.Brain.compose(3, 2, seed=1, memory_choice=False)
+    assert episodic(3, 2, seed=1, memory_context=0.0).context_memory is None
+    released = cd.Brain.compose(3, 2, seed=1)
     assert released.describe()["episodic"] is None and released.context_memory is None
     np.testing.assert_array_equal(released.hippocampus.pre, released.sensory_index)
-    assert released.hippocampus.separator is None
+    assert released.hippocampus.separator is None and released.hippocampus.rate == 1.0
     for field in ("pre", "post", "sign"):
         np.testing.assert_array_equal(
             getattr(brain.connectome, field), getattr(released.connectome, field)
@@ -59,27 +66,27 @@ def test_the_composed_brain_chooses_with_an_episodic_memory():
 
 def test_the_episodic_settings_are_validated_construction_settings():
     with pytest.raises(ValueError, match="memory_context"):
-        cd.Brain.compose(3, 2, memory_context=1.0)
+        episodic(3, 2, memory_context=1.0)
     with pytest.raises(ValueError, match="memory_replay"):
-        cd.Brain.compose(3, 2, memory_replay=-1)
+        episodic(3, 2, memory_replay=-1)
     with pytest.raises(ValueError, match="memory_replay"):
-        cd.Brain.compose(3, 2, memory_replay=True)
+        episodic(3, 2, memory_replay=True)
     with pytest.raises(ValueError, match="memory_choice must be boolean"):
-        cd.Brain.compose(3, 2, memory_choice=1)
+        episodic(3, 2, memory_choice=1)
     with pytest.raises(ValueError, match="need memory_choice"):
-        cd.Brain.compose(3, 2, memory_choice=False, memory_context=0.5)
-    connectome = cd.Brain.compose(3, 2, seed=2).connectome
+        cd.Brain.compose(3, 2, memory_context=0.5)
+    connectome = episodic(3, 2, seed=2).connectome
     with pytest.raises(ValueError, match="needs the episodic memory"):
         cd.Brain(connectome, episodic=False, memory_choice=True)
     with pytest.raises(ValueError, match="construction setting"):
-        cd.Brain.compose(3, 2).retune(memory_context=0.2)
-    brain = cd.Brain.compose(3, 2, seed=2)
+        episodic(3, 2).retune(memory_context=0.2)
+    brain = episodic(3, 2, seed=2)
     brain.retune(memory_rate=0.5)
     assert brain.hippocampus.rate == brain.context_memory.rate == 0.5
 
 
 def test_a_record_votes_in_greedy_and_sampled_choices():
-    brain = cd.Brain.compose(3, 2, seed=3)
+    brain = episodic(3, 2, seed=3)
     x = one_hot(0, 3)
     for _ in range(3):
         brain.reset()
@@ -95,7 +102,7 @@ def test_a_record_votes_in_greedy_and_sampled_choices():
 
 
 def test_the_vote_is_the_mean_of_the_place_and_the_context_records():
-    brain = cd.Brain.compose(3, 2, seed=3)
+    brain = episodic(3, 2, seed=3)
     x = one_hot(0, 3)
     brain.step(x, teacher=[1])
     key = brain._episode_key(x)
@@ -104,7 +111,7 @@ def test_the_vote_is_the_mean_of_the_place_and_the_context_records():
 
 
 def test_a_demonstration_outlives_a_zero_outcome_in_the_middle_of_an_attempt():
-    brain = cd.Brain.compose(3, 3, seed=4, memory_context=0.0)
+    brain = episodic(3, 3, seed=4, memory_context=0.0)
     start, middle = one_hot(0, 3), one_hot(1, 3)
     brain.step(start, teacher=[2])
     shown = place(brain, start, 2)
@@ -119,7 +126,7 @@ def test_a_demonstration_outlives_a_zero_outcome_in_the_middle_of_an_attempt():
 
 
 def test_only_the_streams_whose_outcome_is_known_write_their_records():
-    brain = cd.Brain.compose(2, 2, seed=5)
+    brain = episodic(2, 2, seed=5)
     x = np.array([[1.0, 0.0], [0.0, 1.0]])
     brain.act(x)
     writes = brain.hippocampus.writes, brain.context_memory.writes
@@ -133,7 +140,7 @@ def test_only_the_streams_whose_outcome_is_known_write_their_records():
 
 
 def test_replay_credits_the_path_of_a_rewarded_attempt_and_not_its_stalls():
-    brain = cd.Brain.compose(4, 3, seed=6, memory_context=0.0, actor_gamma=0.9)
+    brain = episodic(4, 3, seed=6, memory_context=0.0, actor_gamma=0.9)
     plan = [(0, 1), (0, 0), (1, 2), (2, 2)]  # a stall at situation 0, then onwards
     for situation, action in plan:
         x = one_hot(situation, 4)
@@ -154,7 +161,7 @@ def test_replay_credits_the_path_of_a_rewarded_attempt_and_not_its_stalls():
 
 
 def test_a_continuing_life_is_not_replayed():
-    brain = cd.Brain.compose(4, 2, seed=7, memory_context=0.0)
+    brain = episodic(4, 2, seed=7, memory_context=0.0)
     brain.act(one_hot(0, 4))
     brain.learn(np.zeros(1), np.zeros(1, bool), one_hot(1, 4))
     brain.act(one_hot(1, 4))
@@ -165,7 +172,7 @@ def test_a_continuing_life_is_not_replayed():
 
 
 def test_the_temporal_context_recalls_a_cue_that_is_gone():
-    brain = cd.Brain.compose(3, 2, seed=8)
+    brain = episodic(3, 2, seed=8)
     cues = {0: one_hot(0, 3), 1: one_hot(1, 3)}
     go = one_hot(2, 3)
     for cue, shown in cues.items():  # one demonstration of each cue's answer
@@ -177,12 +184,12 @@ def test_the_temporal_context_recalls_a_cue_that_is_gone():
         brain.act(shown, greedy=True)
         assert int(brain.act(go, greedy=True)[0]) == cue
     # the place records alone cannot tell the two moments at go apart
-    places = cd.Brain.compose(3, 2, seed=8, memory_context=0.0)
+    places = episodic(3, 2, seed=8, memory_context=0.0)
     assert places.context_memory is None and places._context is None
 
 
 def test_what_the_stream_did_enters_its_context():
-    brain = cd.Brain.compose(2, 3, seed=9)
+    brain = episodic(2, 3, seed=9)
     x = one_hot(0, 2)
     action = int(brain.act(x)[0])
     context = brain._context[0]
@@ -193,7 +200,7 @@ def test_what_the_stream_did_enters_its_context():
 
 
 def test_a_saved_episodic_brain_continues_exactly(tmp_path):
-    brain = cd.Brain.compose(3, 2, seed=10, arousal=True)
+    brain = episodic(3, 2, seed=10, arousal=True)
     for t in range(4):
         brain.step(one_hot(t % 3, 3), reward=None if t == 0 else [0.0])
     path = brain.save(tmp_path / "brain.npz")
@@ -214,18 +221,18 @@ def test_a_saved_episodic_brain_continues_exactly(tmp_path):
         )
     meta = json.loads(str(np.load(path)["generic"]))
     assert meta["format"] == "cadence-generic/6"
-    places = cd.Brain.compose(3, 2, seed=10, memory_context=0.0)
+    places = episodic(3, 2, seed=10, memory_context=0.0)
     places.step(one_hot(0, 3))
     resumed = cd.Brain.load(places.save(tmp_path / "places.npz"))
     assert resumed.context_memory is None and resumed.memory_choice
-    released = cd.Brain.compose(3, 2, seed=10, memory_choice=False)
+    released = cd.Brain.compose(3, 2, seed=10)
     released.act(one_hot(0, 3))
     meta = json.loads(str(np.load(released.save(tmp_path / "released.npz"))["generic"]))
     assert meta["format"] == "cadence-generic/2" and "episodic" not in meta
 
 
 def test_a_calm_brain_records_the_outcome_that_woke_it():
-    brain = cd.Brain.compose(2, 2, seed=11, arousal={"youth": 0})
+    brain = episodic(2, 2, seed=11, arousal={"youth": 0})
     x = one_hot(0, 2)
     brain.live(x)
     for _ in range(5):  # outcomes as forecast: routine
@@ -239,7 +246,7 @@ def test_a_calm_brain_records_the_outcome_that_woke_it():
 
 
 def test_waiting_drifts_the_context():
-    brain = cd.Brain.compose(3, 2, seed=12, arousal=True)
+    brain = episodic(3, 2, seed=12, arousal=True)
     brain.live(one_hot(0, 3))
     before = brain._context.copy()
     brain.wait(one_hot(1, 3))
@@ -247,7 +254,7 @@ def test_waiting_drifts_the_context():
 
 
 def test_slots_take_the_records_vote_per_slot():
-    brain = cd.Brain.compose(2, 4, slots=2, seed=13)
+    brain = episodic(2, 4, slots=2, seed=13)
     x = one_hot(0, 2)
     for _ in range(3):
         brain.reset()
@@ -257,7 +264,7 @@ def test_slots_take_the_records_vote_per_slot():
 
 
 def test_a_choosing_memory_is_not_read_into_the_drive(monkeypatch):
-    brain = cd.Brain.compose(3, 2, seed=14)
+    brain = episodic(3, 2, seed=14)
     brain.step(one_hot(0, 3), teacher=[1])
 
     def refused(*args, **kwargs):

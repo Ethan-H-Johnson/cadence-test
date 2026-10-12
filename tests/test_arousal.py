@@ -18,7 +18,6 @@ def calm_brain(seed: int = 0, **genes) -> cd.Brain:
         seed=seed,
         working_memory_amplitude=0.0,
         arousal=cd.ArousalConfig(**{"youth": 0, **genes}),
-        memory_choice=False,  # the hippocampus of releases before 0.83.0, whose store and writes these contracts pin
     )
 
 
@@ -643,7 +642,7 @@ def test_live_runs_on_the_torch_backend_and_fades_device_eligibility(tmp_path):
 
 
 def test_brains_without_arousal_keep_their_checkpoint_format(tmp_path):
-    plain = cd.Brain.compose(4, 2, modules=(8,), seed=0, memory_choice=False)
+    plain = cd.Brain.compose(4, 2, modules=(8,), seed=0)
     plain.step(np.eye(4)[[0]])
     with np.load(plain.save(tmp_path / "plain.npz")) as data:
         meta = json.loads(str(data["generic"]))

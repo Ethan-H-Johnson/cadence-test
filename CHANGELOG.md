@@ -2,30 +2,35 @@
 
 ## Unreleased
 
-- The composed brain's hippocampus is an episodic memory: what happened in a situation
-  before is remembered at once and votes in the next choice there. `Brain.compose` gains
-  the construction settings `memory_choice` (founder on), `memory_context` (0.5),
-  `memory_replay` (8), `memory_demonstrations` (1.0), `memory_expansion` (1,024) and
-  `memory_winners` (24), and its `memory_rate` founder is 0.5 (1.0 without the episodic
-  memory): a known outcome moves a record halfway. The
-  [episodic memory guide](docs/episodic.md) explains them. Each
-  record is kept twice, keyed by the observation (place) and by the temporal context, the
-  observation with a fading trace of what the stream saw and did before it; the mean of the
-  two reads is added to the motor readout before the softmax, greedy or sampled. A record
-  is written when an outcome is known (a reward or a punishment, the end of an attempt, or a
-  surprise that woke a calm `live` brain), per stream; a zero outcome in the middle of an
-  attempt leaves it. A caregiver's demonstration is recorded at `memory_demonstrations`. An
-  attempt that ended in reward is replayed backwards along its path of situations, one
-  decision per situation, at the reward discounted by the actor's `gamma`. `ActorCritic.act`
-  and `probabilities` take a `bias` added to the readout before the softmax; eligibility still
-  scores the readout's own policy, so reward consolidates what the memory chose.
-  RESULTS: to be filled from the declared confirmation.
-  Compatibility: `memory_choice=False` builds the hippocampus of earlier releases (keyed by
-  the sensory neurons and read into the motor drive); `Brain(...)` and `Brain.build` keep it by
-  default. A brain with the episodic memory saves checkpoint format `cadence-generic/6`,
-  which earlier releases refuse; checkpoints of earlier formats load unchanged with their
-  own hippocampus. Frozen chamber protocols build the hippocampus they were frozen under
-  (`memory_choice=False`) unless they name the episodic memory's settings.
+- An episodic memory for the composed brain, opt-in: `Brain.compose(..., memory_choice=True)`
+  remembers what happened in a situation at once and lets that vote in the next choice there;
+  the [episodic memory guide](docs/episodic.md) explains it. Each record is kept twice, keyed
+  by the observation (place) and by the temporal context, the observation with a fading trace
+  of what the stream saw and did before it (`memory_context` 0.5); the mean of the two reads
+  is added to the motor readout before the softmax, greedy or sampled. A record is written
+  when an outcome is known (a reward or a punishment, the end of an attempt, or a surprise
+  that woke a calm `live` brain), per stream; a zero outcome in the middle of an attempt
+  leaves it; a write moves it halfway (`memory_rate` 0.5). A caregiver's demonstration is
+  recorded at `memory_demonstrations` (1.0). An attempt that ended in reward is replayed
+  backwards along its path of situations, one decision per situation, at the reward
+  discounted by the actor's `gamma` (`memory_replay` 8). Keys are separated
+  (`memory_expansion` 1,024, `memory_winners` 24). `ActorCritic.act` and `probabilities`
+  take a `bias` added to the readout before the softmax; eligibility still scores the
+  readout's own policy, so reward consolidates what the memory chose.
+  On fresh founders and seeds against the composition without it: a four-step crafting chain
+  corrected by a caregiver 41.6% -> 94.4% success, and 38.0% -> 99.2% after 80 episodes alone
+  through `live`; the same chain from reward alone 15.8% -> 79.0%; a second crafting chain
+  33.4% -> 99.4% after the caregiver leaves, 20.0% -> 70.2% from reward alone; delayed
+  response 6 of 6; a bandit whose history does not matter 0.73 -> 1.00; two songs cued once
+  0.60 -> 0.79 of their notes after ten lessons; taught recall of a vanished cue 0.55 -> 0.74
+  over its four hardest conditions, unevenly (two founders gained, one already strong lost).
+  It is not the default: on the odour nursery's confirmation lives it left a reversal
+  incomplete in three of twenty lives where the composition without it passed every gate,
+  and in a continuing life without `done` (the prerequisite-chain nursery) it lowered the
+  observed chain's stage accuracy. `Brain.compose` without `memory_choice` builds the 0.82.0
+  composition unchanged.
+  Compatibility: a brain with the episodic memory saves checkpoint format
+  `cadence-generic/6`, which earlier releases refuse; every other checkpoint keeps its format.
 
 ## 0.82.0 — 2026-10-12
 

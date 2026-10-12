@@ -31,8 +31,8 @@ For a version-pinned reading order, use the
 2. [Quickstart](quickstart.md): run one brain through observations and outcomes.
 3. [Build a brain](brain.md): compose System 1, add optional observers and save it.
 4. [Context](context.md): what the brain carries from moment to moment, and how to wire it
-   for better retention. [Episodic memory](episodic.md): what happened in a situation before,
-   remembered at once and voting in the choice.
+   for better retention. [Episodic memory](episodic.md) (opt-in): what happened in a
+   situation before, remembered at once and voting in the choice.
 5. [Continuous interaction](continuous.md): observations, actual rewards,
    demonstrations, memory and private imagination.
 6. [Contracts](contracts.md): numerical qualification, learning and refusal.

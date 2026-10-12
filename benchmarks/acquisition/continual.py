@@ -39,8 +39,7 @@ def make_brain(seed: int, consolidation: float) -> Brain:
         damping=3,
     )
     brain = Brain.compose(
-        650, 36, modules=(32, 16), seed=seed, consolidation=consolidation, learning=config,
-        memory_choice=False,  # the hippocampus of releases before 0.83.0
+        650, 36, modules=(32, 16), seed=seed, consolidation=consolidation, learning=config
     )
     graph = brain.brain
     bias = graph.bias.copy()

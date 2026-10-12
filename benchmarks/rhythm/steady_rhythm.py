@@ -151,8 +151,6 @@ def make_brain(seed: int, protocol: dict, recipe: str = "selected") -> Brain:
         working_memory_amplitude=spec["working_memory_amplitude"],
         # the composition of releases before 0.82.0 read the trace back at scale 12
         working_memory_scale=spec.get("working_memory_scale", 12.0),
-        # and the hippocampus of releases before 0.83.0, read into the drive
-        memory_choice=bool(spec.get("memory_choice", False)),
         # rhythm/2: the efference copy as a gene; absent keys build the rhythm/1 brain
         **{key: spec[key] for key in ("efference_amplitude", "efference_decay") if key in spec},
     )

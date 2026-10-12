@@ -3,8 +3,10 @@
 A brain's synapses learn slowly. Each update moves the whole policy a little, and neighbouring
 situations share most of their representation, so one lesson barely moves one answer. Animals
 also learn in one go: a place where food was found once, a route a parent showed once, the
-step of a song that comes next. The composed brain keeps such episodes in its hippocampus, an
-episodic memory beside the slow cortex. Since 0.83.0 its records vote in every choice.
+step of a song that comes next. Since 0.83.0 the composed brain can keep such episodes in its
+hippocampus, an episodic memory beside the slow cortex whose records vote in every choice:
+`Brain.compose(..., memory_choice=True)`. It is not yet the default; [when to turn it
+on](#when-to-turn-it-on) says why.
 
 ## How it works
 
@@ -54,19 +56,21 @@ attempt ended in reward ───────► replay: the decisions on its pa
   strength at once in its stream and is consolidated with repetition and salience
   (`consolidation`).
 
-## The defaults
+## Turning it on
 
 ```python
 from cadence import Brain
 
-brain = Brain.compose(inputs=3, actions=2, arousal=True)    # the episodic memory is on
+brain = Brain.compose(inputs=3, actions=2, arousal=True, memory_choice=True)
 brain.step([[1.0, 0.0, 0.0]], teacher=[0])                  # shown once: remembered
 action = brain.live([[1.0, 0.0, 0.0]])                      # the record votes for 0
 ```
 
-| Setting | Default | What it does |
+`memory_choice=True` brings the settings below. Each can be passed beside it.
+
+| Setting | With `memory_choice=True` | What it does |
 | --- | --- | --- |
-| `memory_choice` | `True` | The records vote in the choice; `False` builds the hippocampus of releases before 0.83.0 |
+| `memory_choice` | `True` | The records vote in the choice; the founder `False` keeps the hippocampus of earlier releases, keyed by the senses and read into the motor drive |
 | `memory_context` | `0.5` | The share of the past in the context key; 0 keeps the place records alone |
 | `memory_replay` | `8` | How many decisions back an attempt that ended in reward is replayed |
 | `memory_demonstrations` | `1.0` | The value at which a shown action is recorded; 0 records none |
@@ -75,8 +79,39 @@ action = brain.live([[1.0, 0.0, 0.0]])                      # the record votes f
 
 These are construction settings: pass them to `Brain.compose(...)`; `retune` refuses them,
 except `memory_rate`, a store setting like `memory_decay`, `memory_amplitude` and
-`consolidation`, which `retune` changes for both stores together. `Brain(...)` and `Brain.build(...)` keep the earlier
-hippocampus unless `memory_choice=True` is passed.
+`consolidation`, which `retune` changes for both stores together. The same settings turn it
+on in `Brain(...)` and `Brain.build(...)`, where every setting has to be named.
+
+## When to turn it on
+
+Turn it on when a skill is taught by showing or correcting, when a chain of actions is paid at
+its end and the world marks the end of each attempt, when a cue that is gone must still decide
+an answer, and for sequences of the brain's own actions. Measured on fresh founders against the
+composition without it (development tasks, never used to choose the settings):
+
+| Task (fresh founders) | Without | With `memory_choice=True` |
+| --- | --- | --- |
+| Four-step crafting chain, a caregiver corrects executed mistakes (5 founders): success after teaching | 41.6% | 94.4% |
+| the same, then 80 episodes alone through `live` | 38.0% | 99.2% |
+| the same chain from reward alone, through `step`, then alone | 15.8% | 79.0% |
+| A second crafting chain (5 seeds): taught, after the caregiver leaves | 33.4% | 99.4% |
+| the same from reward alone, after 80 episodes alone | 20.0% | 70.2% |
+| Delayed response learned from reward (6 seeds) | | 6 of 6 at 1.0 |
+| Continuing bandit whose history does not matter (6 seeds), hit rate | 0.73 | 1.00 |
+| Two four-note songs cued once, 10 lessons (6 seeds): notes right, whole songs | 0.60, 1 of 12 | 0.79, 4 of 12 |
+| Taught recall of a vanished cue (4 founders): clean-4, clean-8, distractor-2, capacity-2 | 0.55 | 0.74 |
+
+The recall gain is uneven: two founders on which recall was weak gained 0.37 and 0.49; on one
+whose recall was already strong (0.875) it fell to 0.68, where order (which of two cues came
+last) rose from 0.00 to 1.00.
+
+Not yet in a continuing life whose rules reverse: in the odour nursery's confirmation lives,
+three of twenty reversed or returned incompletely (their last hundred actions 76 to 82%
+optimal), and one of them also lost its stable pair in a third of its probes during one rule,
+where the composition without it passed every gate. A record of a punished approach keeps voting against the odour that now
+pays. In a continuing life without `done`, no attempt is replayed: on the prerequisite-chain
+nursery's observed chain, paid only at the completion, the completing action's record spread to
+neighbouring stages and lowered the stage accuracy from 0.67 to 0.33.
 
 ## Settings
 

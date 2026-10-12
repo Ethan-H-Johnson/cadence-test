@@ -133,10 +133,6 @@ def make_brain(point: dict[str, Any], seed: int, world: dict[str, Any], need: fl
         # frozen protocols ran the composition of releases before 0.82.0: the carried
         # interpretation read back at scale 12
         working_memory_scale=float(point.get("trace_scale", 12.0)),
-        # and the hippocampus of releases before 0.83.0, read into the drive, unless the
-        # point names the episodic memory (``memory_choice`` 1, ``memory_context``)
-        memory_choice=bool(point.get("memory_choice", False)),
-        **({"memory_context": float(point["memory_context"])} if "memory_context" in point else {}),
         consolidation=float(point["consolidation"]),
         episodic=bool(point.get("episodic", True)),
         memory_rate=float(point.get("memory_rate", 1.0)),

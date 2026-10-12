@@ -133,11 +133,7 @@ def run():
     # No reset or replacement across stages: both memory pathways remain live.
     assert brain.working_memory is not None
     assert brain.hippocampus is not None
-    # The episodic memory records each paid outcome and each corrective lesson; an unpaid
-    # outcome in the middle of the continuing stream is not yet known and writes nothing.
-    paid = sum(row["reward"] != 0 for row in outcomes)
-    lessons = sum(row["next_teacher"] is not None for row in outcomes)
-    assert brain.hippocampus.writes == paid + lessons
+    assert brain.hippocampus.writes == len(outcomes)
 
     with tempfile.TemporaryDirectory(prefix="cadence-continuing-") as folder:
         folder = Path(folder)

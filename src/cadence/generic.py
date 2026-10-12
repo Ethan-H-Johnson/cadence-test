@@ -139,8 +139,8 @@ def _count(name: str, value: Any, low: int = 0) -> int:
     return int(value)
 
 
-# The episodic memory of ``Brain.compose``: records keyed by the temporal context vote in the
-# choice, remember demonstrations, and replay an attempt that ended in reward; separated keys.
+# The episodic memory that ``Brain.compose(..., memory_choice=True)`` builds: place and context
+# records vote in the choice, remember demonstrations and replay an attempt that ended in reward.
 _EPISODIC_FOUNDERS: dict[str, Any] = {
     "memory_choice": True,
     "memory_context": 0.5,
@@ -985,25 +985,27 @@ class Brain:
         through a plastic projection of founder scale 12. The founder
         value zero builds the brain without it, byte-identical to the released
         composition; the copy is a gene to select against that control.
-        The hippocampus is an episodic memory (``memory_choice``, founder on): its records
-        vote in every choice, greedy or sampled, added to the motor readout before the
-        softmax. Each record is kept twice: keyed by the observation (place), and keyed by
-        the stream's temporal context, the observation with the fading trace of what the
-        stream saw and did before it (``memory_context``, the share the past keeps per
-        moment, founder 0.5; zero keeps the place records alone). The vote is the mean of
-        the two reads: the place records answer a known situation reached along a new path,
-        the context records tell apart situations that look the same. It records the
-        outcome of the chosen action when the outcome is known: a reward or a punishment,
-        the end of an attempt (``done``), or a surprise that woke a calm ``live`` brain; a
-        zero outcome in the middle of an attempt leaves the record as it was. A
-        demonstrated action is recorded at ``memory_demonstrations`` (founder 1.0) for the
-        situation it was shown in. When an attempt ends in reward, the decisions
-        on its path are recorded again, backwards, at the reward discounted per step
-        (``memory_replay`` steps, founder 8); a decision that left its situation unchanged
-        is not on the path. A known outcome moves a record halfway (``memory_rate`` 0.5;
-        1.0 lets the last outcome replace it). Keys are separated (``memory_expansion``
-        1,024 cells, ``memory_winners`` 24). ``memory_choice=False`` builds the hippocampus
-        of releases before 0.83.0, read into the motor drive; ``episodic=False`` builds none.
+        ``memory_choice=True`` makes the hippocampus an episodic memory: its records vote
+        in every choice, greedy or sampled, added to the motor readout before the softmax.
+        Each record is kept twice: keyed by the observation (place), and keyed by the
+        stream's temporal context, the observation with the fading trace of what the stream
+        saw and did before it (``memory_context``, the share the past keeps per moment, 0.5;
+        zero keeps the place records alone). The vote is the mean of the two reads: the
+        place records answer a known situation reached along a new path, the context records
+        tell apart situations that look the same. It records the outcome of the chosen action
+        when the outcome is known: a reward or a punishment, the end of an attempt
+        (``done``), or a surprise that woke a calm ``live`` brain; a zero outcome in the
+        middle of an attempt leaves the record as it was. A demonstrated action is recorded
+        at ``memory_demonstrations`` (1.0) for the situation it was shown in. When an attempt
+        ends in reward, the decisions on its path are recorded again, backwards, at the
+        reward discounted per step (``memory_replay`` steps, 8); a decision that left its
+        situation unchanged is not on the path. A known outcome moves a record halfway
+        (``memory_rate`` 0.5; 1.0 lets the last outcome replace it). Keys are separated
+        (``memory_expansion`` 1,024 cells, ``memory_winners`` 24). Each setting can be passed
+        beside ``memory_choice=True``. The founder ``memory_choice=False`` keeps the
+        hippocampus of earlier releases, keyed by the senses and read into the motor drive;
+        ``episodic=False`` builds none. On fresh founders the episodic memory left a reversal
+        incomplete in some continuing lives where the earlier hippocampus did not.
         Use ``genome``/``Genome`` for custom ports, sparsity and named wiring.
         """
 
@@ -1036,7 +1038,7 @@ class Brain:
             raise ValueError("seed must be a nonnegative integer")
         if "episodic" in options and not isinstance(options["episodic"], bool):
             raise ValueError("episodic must be boolean")
-        if options.get("episodic", True) and options.get("memory_choice", True) is not False:
+        if options.get("episodic", True) and options.get("memory_choice") is True:
             for name, value in _EPISODIC_FOUNDERS.items():
                 options.setdefault(name, value)
         if isinstance(modules, (str, bytes)) or isinstance(observers, (str, bytes)):
