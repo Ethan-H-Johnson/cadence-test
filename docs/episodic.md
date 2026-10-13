@@ -126,8 +126,9 @@ default for now.
 On the [Stone Age environment](https://github.com/ali12mahmood12345-boop/cadence-stone-age)'s
 own benchmarks of its four-step crafting chain (seeds 42 to 46, frozen full-chain success
 after training): backward lessons stopped at competency go from 8.4% to 25.6% (the untrained
-founder 9.0%, uniform random 7.2%) with a fifth of the lesson and rescue trips, and retention
-rescue goes from 6.2% to 37.4%, keeping all four steps where without it two of them collapse.
+founder 9.0%, uniform random 7.2%) with a third of the lesson trips and a fifth of the rescue
+trips, and retention rescue goes from 6.2% to 37.4%, keeping all four steps where without it
+two of them collapse.
 
 ## Settings
 
