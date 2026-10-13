@@ -30,7 +30,10 @@ region exchanges signals with motor neurons, and its working trace enters throug
 context neurons: each moment's settled interpretation is carried into the next settle
 ([context](context.md) explains it and how to wire for retention). `SynapticMemory`
 records the actually chosen action's reward; its fast and persistent associations
-influence later choices.
+influence later choices. With `memory_choice=True` the hippocampus is an episodic memory:
+it records what happened in each situation, by place and by temporal context, remembers
+demonstrated actions, replays the path to a reward, and its records vote in every
+choice ([episodic memory](episodic.md)).
 
 `Brain.compose(..., efference_amplitude=1.0)` adds the efference copy of the
 issued command: one `efference` neuron per motor neuron, driven by the fading
@@ -123,7 +126,10 @@ retain their own defaults, listed in the [API reference](api.md).
 | `actor_center_scale`, `actor_critic_normalize`, `actor_critic_signal` | `True`, `True`, `"auto"` | Dopamine units and critic update law |
 | `working_memory_decay`, `working_memory_amplitude`, `working_memory_focus` | `0.0`, `3.0`, `0.0` | Continuing working trace: the carried interpretation ([context](context.md)) |
 | `efference_decay`, `efference_amplitude` | `0.2`, `0.0` | Issued-command trace; a positive amplitude at construction adds its population |
-| `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `1.0`, `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
+| `memory_decay`, `memory_rate`, `memory_amplitude`, `consolidation` | `0.9`, `1.0` (`0.5` with `memory_choice=True`), `1.0`, `0.05` | Associative retention, actual-outcome writes, recall and consolidation |
+| `memory_choice` | `False` | `True` builds the episodic memory and its settings below ([episodic memory](episodic.md)); construction only |
+| `memory_context`, `memory_replay`, `memory_demonstrations` | `0.5`, `8`, `1.0` with `memory_choice=True` | The share of the past in the context key, replay of the path to a reward, remembered demonstrations; construction only |
+| `memory_expansion`, `memory_winners` | `1024`, `24` with `memory_choice=True` | Separation of the episodic memory's keys; construction only |
 | `arousal_threshold`, `arousal_decay`, `arousal_tolerance`, `arousal_floor` | `0.2`, `0.9`, `2.0`, `0.1` | Routine/aroused decision in `live`, when arousal is enabled |
 | `arousal_fast`, `arousal_slow` | `0.05`, `0.005` | Recent and long-run outcome statistics in `live` |
 | `arousal_heat`, `arousal_youth` | `2.0`, `100` | Exploration and initial aroused moments in `live` |

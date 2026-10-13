@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+- An episodic memory for the composed brain, opt-in: `Brain.compose(..., memory_choice=True)`
+  remembers what happened in a situation at once and lets that vote in the next choice there,
+  and learns chains of actions from rewards without the world marking the end of an attempt;
+  the [episodic memory guide](docs/episodic.md) explains it. Each record is kept twice, keyed
+  by the observation (place) and by the temporal context, the observation with a fading trace
+  of what the stream saw and did before it (`memory_context` 0.5); the mean of the two reads
+  is added to the motor readout before the softmax, greedy or sampled. A record is written
+  when an outcome is known (a reward or a punishment, the end of an attempt, a surprise that
+  woke a calm `live` brain, or an outcome the caller marks with a positive `salience`), per
+  stream; a zero outcome in the middle of an attempt leaves it. A write corrects the
+  stream's record halfway at once (`memory_rate` 0.5), fading by `memory_decay` per later
+  write, and consolidates into the record every stream shares at `consolidation`. A
+  caregiver's demonstration is recorded at `memory_demonstrations` (1.0). A reward is replayed
+  backwards along the stream's recent path, one decision per situation, back to the last
+  known outcome, discounted by the actor's `gamma` (`memory_replay` 8): a reward that ends an
+  attempt whole, into both kinds of record; a reward in a continuing life in proportion to
+  its surprise, into the context records, and into the place records of the decisions that
+  were explorations rather than the brain's best guess. Keys are separated
+  (`memory_expansion` 1,024, `memory_winners` 24). `ActorCritic.act` and `probabilities`
+  take a `bias` added to the readout before the softmax; eligibility still scores the
+  readout's own policy, so reward consolidates what the memory chose.
+  On fresh founders and seeds against the composition without it: a four-step crafting chain
+  corrected by a caregiver 38.1% -> 98.7% success, and 9.0% -> 97.8% after 80 episodes alone
+  through `live`; the same chain from reward alone 9.1% -> 73.2%; a second crafting chain
+  2.8% -> 99.0% after the caregiver leaves, 15.0% -> 75.6% from reward alone; a four-step chain
+  in one continuing life paid only at its completion, without `done`, 0 -> 108 greedy
+  completions per thousand moments; reversals in a continuing life (the odour nursery) pass
+  every gate in 20 of 20 lives; delayed response 6 of 6; two songs cued once 0.52 -> 0.65 of
+  their notes after ten lessons; taught recall of a vanished cue 0.70 -> 0.75 over its four
+  hardest conditions, unevenly. A continuing bandit whose history does not matter falls from
+  0.86 to 0.75, and it is not the default. `Brain.compose` without `memory_choice` builds the
+  0.82.0 composition unchanged.
+  Compatibility: a brain with the episodic memory saves checkpoint format
+  `cadence-generic/6`, which earlier releases refuse; every other checkpoint keeps its format.
 - The sequential-task guide adds the measured continuation after teaching: a brain left alone
   through `live` keeps a taught chain where `step` erodes it; lowering the step stays the remedy
   where surprises are mostly punishments. No runtime change.

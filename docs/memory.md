@@ -23,6 +23,7 @@ provides independent stream records and an immediate residual-write rule.
 | `Efference` copy (opt-in gene) | The fading one-hot of the commands the stream issued | Each admitted live action | Nothing; the copy is cleared |
 | Graph plasticity | Learned synaptic parameters and biases | Supervised contrasts and reward-modulated eligibility | Learned parameters |
 | `SynapticMemory` | Cue-to-outcome associations, with fast per-stream `F` and shared persistent `C` | Observed chosen-action outcomes | Both `F` and `C` |
+| Episodic memory (`memory_choice=True`) | The same store keyed by the observation, and a second keyed by the temporal context; their mean votes in the choice | Known outcomes, demonstrations, replay of the path to a reward | The records; the temporal context and replay path are cleared |
 
 These are functional software mechanisms. Their capacities follow their state
 dimensions, coding and update rules; a human working-memory estimate does not set
@@ -48,12 +49,15 @@ answer = remembering.act(np.array([[1.0, 0.0, 0.0, 0.0]]), greedy=True)
 assert answer.shape == (1,)
 ```
 
-`teacher=` teaches graph parameters without inserting its label into the store.
-The normal reward loop stores the actual chosen action's observed reward, not an
-invented reward for a teacher label. Direct `observe` calls are an explicit
-key/value acquisition rule; they test that store rather than graph plasticity.
-An associative read is a linear drive into the graph; the resulting action must
-still qualify the complete neural equations.
+With `memory_choice=True` the composed brain's hippocampus is an
+[episodic memory](episodic.md): keyed by the observation and, in a second store, by the
+temporal context, it records known outcomes and demonstrated actions
+(`memory_demonstrations`) and its records vote in the choice, added to the motor readout
+before the softmax. By default it is the earlier store: `teacher=` teaches
+graph parameters without inserting its label, the reward loop stores the actual chosen
+action's observed reward, and the read is a linear drive into the graph whose resulting
+action must still qualify the complete neural equations. Direct `observe` calls are an
+explicit key/value acquisition rule; they test that store rather than graph plasticity.
 
 Measure acquisition first, then expose the same brain to competing experience
 and query old and new responses without teachers. Rehearsal can protect recall

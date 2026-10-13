@@ -113,7 +113,8 @@ never differ, it answers from the present observation alone.
 ## What context is not
 
 - It is not a recording of past inputs. Two different histories that lead to the same
-  interpretation are the same context.
+  interpretation are the same context. The [episodic memory](episodic.md) keys its records by
+  a fixed fading trace of what was seen and done, which does tell such histories apart.
 - There is no separate gate deciding what to store. A distractor that looks like real evidence
   can overwrite the context of a small brain; a wider association region resists it better.
 - `act` settles the present moment with the carried context; it does not plan a whole future
@@ -121,5 +122,6 @@ never differ, it answers from the present observation alone.
 - `predict` and `fit` answer independent samples and ignore the context; use `live`, `step`
   or `act` on a continuing stream.
 
-See [memory](memory.md) for the longer-term associative stores, [sequential tasks](sequential-tasks.md)
+See [episodic memory](episodic.md) for what happened in a situation before, [memory](memory.md)
+for the longer-term associative stores, [sequential tasks](sequential-tasks.md)
 for chains of actions, and the [composition guide](brain.md) for every default.
