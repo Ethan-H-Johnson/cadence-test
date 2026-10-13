@@ -49,6 +49,11 @@ step erodes under its own continued learning, in a melee and in the nursery itse
 [competing-skill ring](../benchmarks/competing/README.md#the-arena-sixty-fights-2026-10-10)).
 More drilling past the point of acquisition does not consolidate, it moves the policy. A
 step ten to thirty times smaller after acquisition held the skill while learning went on.
+A brain that continues through `live` learns only from outcomes that surprise it. On a fully
+observed chain of four actions taught by correcting executed mistakes, five fresh founders
+left alone through `live` kept 42.5% of their 44.8% frozen success; left alone through `step`,
+which learns from every outcome, they kept 33.2%, and two of them fell to nothing. Where most
+surprises are punishments, as in the arena's melee, `live` alone does not hold the skill.
 
 ## The pattern that the measurements support
 
@@ -69,9 +74,11 @@ step ten to thirty times smaller after acquisition held the skill while learning
 4. **Track acquisition and retention at a declared probe schedule.** Longer training
    can degrade an acquired skill. Select a training budget in development, then
    freeze it before testing fresh founders; disclose any checkpoint selection.
-5. **Lower the actor step after acquisition.** The ring stage of the arena
-   (`actor_eta` 0.001 to 0.003 against the nursery's 0.03) is the measured remedy for a
-   skill that erodes under continued learning.
+5. **After acquisition, continue through `live` or lower the actor step.** Once the
+   caregiver leaves, a life through `live` learns only from surprising outcomes and keeps
+   what it was taught. Where surprises are mostly punishments, lower the step instead: the
+   ring stage of the arena (`actor_eta` 0.001 to 0.003 against the nursery's 0.03) is the
+   measured remedy there.
 6. **Read the sampled policy beside the greedy one.** A frozen greedy copy can answer with
    one action in every situation while the sampled policy's probabilities move with the
    situation (the arena's fingerprint). Read the probability of the right action per

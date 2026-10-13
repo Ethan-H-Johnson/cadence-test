@@ -30,12 +30,15 @@
   in one continuing life paid only at its completion, without `done`, 0 -> 108 greedy
   completions per thousand moments; reversals in a continuing life (the odour nursery) pass
   every gate in 20 of 20 lives; delayed response 6 of 6; two songs cued once 0.52 -> 0.65 of
-  their notes after ten lessons; taught recall of a vanished cue 0.70 -> 0.75
-  over its four hardest conditions, unevenly. A continuing bandit whose history does not matter falls
-  from 0.86 to 0.75, and it is not the default. `Brain.compose` without `memory_choice` builds
-  the 0.82.0 composition unchanged.
+  their notes after ten lessons; taught recall of a vanished cue 0.70 -> 0.75 over its four
+  hardest conditions, unevenly. A continuing bandit whose history does not matter falls from
+  0.86 to 0.75, and it is not the default. `Brain.compose` without `memory_choice` builds the
+  0.82.0 composition unchanged.
   Compatibility: a brain with the episodic memory saves checkpoint format
   `cadence-generic/6`, which earlier releases refuse; every other checkpoint keeps its format.
+- The sequential-task guide adds the measured continuation after teaching: a brain left alone
+  through `live` keeps a taught chain where `step` erodes it; lowering the step stays the remedy
+  where surprises are mostly punishments. No runtime change.
 
 ## 0.82.0 — 2026-10-12
 
