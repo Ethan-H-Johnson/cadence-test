@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.83.0 — 2026-10-13
 
 - An episodic memory for the composed brain, opt-in: `Brain.compose(..., memory_choice=True)`
   remembers what happened in a situation at once and lets that vote in the next choice there,
