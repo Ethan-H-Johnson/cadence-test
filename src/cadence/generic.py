@@ -483,7 +483,10 @@ def _validate_episodic_state(
 ) -> None:
     """The settings and stream state of an episodic memory's choice (format /6)."""
     names = ("episode/context", "episode/decision") + tuple(
-        "episode/path/" + name for name in ("keys", "actions", "observations", "lengths")
+        "episode/path/" + name
+        for name in (
+            "keys", "actions", "observations", "lengths", "rewards", "received", "guess"
+        )
     )
     episodic = meta.get("episodic")
     if episodic is None:
@@ -525,7 +528,7 @@ def _validate_episodic_state(
             if value.ndim != 2 or not len(value) or value.shape[1] != width:
                 raise ValueError(f"invalid saved state: {name}")
     path = [name for name in names[3:] if name in data]
-    if path and len(path) != 3:
+    if path and len(path) != 6:
         raise ValueError("incomplete saved replay paths")
     if path and (temporal is not None) != ("episode/path/keys" in data):
         raise ValueError("saved replay paths carry context keys exactly with context records")
@@ -558,6 +561,19 @@ def _validate_episodic_state(
         limit = learner.slot_sizes[None, None, :] if slotted else len(learner.output_index)
         if (actions < 0).any() or (actions >= limit).any():
             raise ValueError("invalid saved replay path actions")
+        rewards, received = array("episode/path/rewards"), array("episode/path/received")
+        guess = array("episode/path/guess")
+        if (
+            rewards.shape != (streams, longest)
+            or received.shape != (streams, longest)
+            or received.dtype != np.bool_
+            or guess.shape != (streams, longest)
+            or not np.isfinite(rewards).all()
+            or not np.isfinite(guess).all()
+            or (guess < 0).any()
+            or (guess > 1).any()
+        ):
+            raise ValueError("invalid saved replay path outcomes")
 
 
 class Brain:
@@ -718,10 +734,13 @@ class Brain:
         self.memory_replay = memory_replay
         self.memory_demonstrations = memory_demonstrations
         # ``memory_choice``, per stream: the temporal context after its last decision, that
-        # decision's key, and the path of the attempt, one decision per situation it left
+        # decision's key, and the recent path, one decision per situation it left: (key,
+        # action, observation, outcome, outcome received, how far it was the best guess)
         self._context: np.ndarray | None = None
         self._decision: np.ndarray | None = None
-        self._paths: list[list[tuple[np.ndarray | None, np.ndarray, np.ndarray]]] = []
+        self._paths: list[
+            list[tuple[np.ndarray | None, np.ndarray, np.ndarray, float, bool, float]]
+        ] = []
         self.rng = np.random.default_rng(seed)
         self._moment: tuple[np.ndarray, np.ndarray] | None = None
         self._prepared: np.ndarray | None = None  # the observations ``learn`` settled
@@ -997,16 +1016,23 @@ class Brain:
         when the outcome is known: a reward or a punishment, the end of an attempt
         (``done``), or a surprise that woke a calm ``live`` brain; a zero outcome in the
         middle of an attempt leaves the record as it was. A demonstrated action is recorded
-        at ``memory_demonstrations`` (1.0) for the situation it was shown in. When an attempt
-        ends in reward, the decisions on its path are recorded again, backwards, at the
-        reward discounted per step (``memory_replay`` steps, 8); a decision that left its
-        situation unchanged is not on the path. A known outcome moves a record halfway
-        (``memory_rate`` 0.5; 1.0 lets the last outcome replace it). Keys are separated
+        at ``memory_demonstrations`` (1.0) for the situation it was shown in. A write corrects
+        the stream's record halfway at once (``memory_rate`` 0.5), a trace that fades by
+        ``memory_decay`` (0.9) per later write, and consolidates into the record every stream
+        shares and resets keep at ``consolidation`` (0.05). A reward is replayed backwards
+        along the stream's recent path (``memory_replay`` steps, 8; one decision per
+        situation, the one that left it), through the decisions whose own outcome was
+        nothing, back to the last known outcome, discounted per step and up to the discounted
+        reward. A reward that ends an attempt (``done``) is replayed whole into both kinds of
+        record. In a continuing life a reward is replayed in proportion to its surprise, the
+        reward less what the memory expected of the paid decision: into each decision's
+        context record, and into its place record as far as it was an exploration rather than
+        the brain's best guess. Nothing has to mark the end of an attempt. Keys are separated
         (``memory_expansion`` 1,024 cells, ``memory_winners`` 24). Each setting can be passed
         beside ``memory_choice=True``. The founder ``memory_choice=False`` keeps the
         hippocampus of earlier releases, keyed by the senses and read into the motor drive;
-        ``episodic=False`` builds none. On fresh founders the episodic memory left a reversal
-        incomplete in some continuing lives where the earlier hippocampus did not.
+        ``episodic=False`` builds none. On fresh seeds the episodic memory scored below the
+        earlier hippocampus on a continuing bandit whose history does not matter.
         Use ``genome``/``Genome`` for custom ports, sparsity and named wiring.
         """
 
@@ -1508,7 +1534,8 @@ class Brain:
             raise RuntimeError("feedback needs a preceding action; start with step(observations)")
         # All feedback and demonstrations are checked before changing any state.
         if pending:
-            self.last_learning = self.learn(r, ended, x, bootstrap=bootstrap, salience=importance)
+            supplied = None if salience is None else importance
+            self.last_learning = self.learn(r, ended, x, bootstrap=bootstrap, salience=supplied)
         else:
             self.last_learning = {}
         if labels is not None:
@@ -1532,8 +1559,7 @@ class Brain:
                 value = np.full(batch, self.memory_demonstrations)
                 self._remember(
                     x, self._episode_key(x) if self.context_memory is not None else None,
-                    labels, value, SynapticMemory.salience_vector(value, batch),
-                    np.ones(batch, bool),
+                    labels, value, np.ones(batch, bool),
                 )
             self._prepared = None
             self.basal_ganglia._drive = None
@@ -1655,10 +1681,9 @@ class Brain:
                     )
                     recorded = True
                 else:
-                    # the outcome that woke the brain surprised it: it is known at any reward
-                    self._remember(
-                        lived[0], self._decided(1), lived[1], r,
-                        SynapticMemory.salience_vector(np.abs(r), 1), np.ones(1, bool),
+                    # the outcome that woke the brain surprised it: known at any reward
+                    self._record_outcome(
+                        lived[0], lived[1], r, ended, np.ones(1, bool), woken=True
                     )
                     recorded = True
                 if recorded and not self.memory_choice:
@@ -1668,6 +1693,8 @@ class Brain:
                         answer[1], self.brain, answer[0]
                     )
                     answer = None
+            if routine and self.memory_choice:
+                self._received(r)  # a calm outcome joins the path; replay may value it later
             if routine and ended[0]:
                 self._end_attempt(ended)
         aroused = arousal.aroused
@@ -1996,7 +2023,19 @@ class Brain:
                     self._command(action)
                 )
             if self.memory_replay:
-                self._extend_paths(x, key, action)
+                assert state is not None
+                # how far the choice was the brain's best guess: the chosen action's
+                # probability under its own policy, without the heat of exploration, over the
+                # most probable action's (1 for the best guess), averaged over the slots
+                p = self.basal_ganglia.probabilities(state, bias=bias)
+                rows = np.arange(len(action))
+                if action.ndim == 2:
+                    slots = np.arange(action.shape[1])
+                    picked = p[rows[:, None], slots[None, :], action]
+                    guess = (picked / np.maximum(p.max(axis=-1), 1e-12)).mean(axis=1)
+                else:
+                    guess = p[rows, action] / np.maximum(p.max(axis=-1), 1e-12)
+                self._extend_paths(x, key, action, np.minimum(guess, 1.0))
         self._moment = None if greedy else (x.copy(), action.copy())
         return action
 
@@ -2029,10 +2068,12 @@ class Brain:
             return (1.0 - keep) * fresh if keep else fresh
         return keep * context + (1.0 - keep) * fresh
 
-    def _extend_paths(self, x: np.ndarray, key: np.ndarray | None, action: np.ndarray) -> None:
-        """Add each stream's decision to its path. A decision taken on the observations of
-        the stream's previous decision replaces it: that decision left the situation as it
-        was, and only the decision that leaves a situation lies on the path onwards."""
+    def _extend_paths(
+        self, x: np.ndarray, key: np.ndarray | None, action: np.ndarray, guess: np.ndarray
+    ) -> None:
+        """Add each stream's decision to its recent path. A decision taken on the observations
+        of the stream's previous decision replaces it: that decision left the situation as
+        it was, and only the decision that leaves a situation lies on the path onwards."""
         if len(self._paths) != len(x):
             self._paths = [[] for _ in range(len(x))]
         for row, path in enumerate(self._paths):
@@ -2040,6 +2081,9 @@ class Brain:
                 None if key is None else key[row].copy(),
                 np.array(action[row], copy=True),
                 x[row].copy(),
+                0.0,
+                False,
+                float(guess[row]),
             )
             if path and np.array_equal(path[-1][2], entry[2]):
                 path[-1] = entry
@@ -2047,38 +2091,144 @@ class Brain:
                 path.append(entry)
                 del path[: -(self.memory_replay + 1)]
 
-    def _replay(self, reward: np.ndarray, done: np.ndarray) -> None:
-        """Reverse replay: after an attempt ended in reward, the decisions on the stream's path
-        to it are recorded again, backwards, at the reward discounted per step of the path.
-        A continuing life without ends credits a reward to the decision that earned it, and
-        earlier decisions through the actor's eligibility."""
+    def _received(self, reward: np.ndarray) -> None:
+        """The outcome of each stream's last decision joins its path."""
+        if len(self._paths) != len(reward):
+            return
+        for row, path in enumerate(self._paths):
+            if path:
+                key, action, observation, _, _, guess = path[-1]
+                path[-1] = (key, action, observation, float(reward[row]), True, guess)
+
+    def _record_outcome(
+        self,
+        observations: np.ndarray,
+        action: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        learned: np.ndarray,
+        woken: bool = False,
+        salience: np.ndarray | None = None,
+    ) -> None:
+        """Record the outcome of the last decision for the streams in ``learned``, where it is
+        known: a reward or a punishment, the end of an attempt, a surprise that woke a calm
+        brain, or an outcome the caller marked with a positive ``salience``. A zero outcome
+        in the middle of an attempt is not yet one. A supplied salience also sets how fast
+        the outcome consolidates; without one every write moves a record equally. A reward
+        replays the decisions that led to it."""
+        marked = np.zeros(len(reward), bool) if salience is None else salience > 0
+        known = learned & ((reward != 0) | done | woken | marked)
+        keys = self._decided(len(action))
+        # what the memory expected of the decision, read before its outcome is written; an
+        # attempt that ends is a closed episode, whose reward is replayed whole
+        surprise = np.where(done, reward, reward - self._held(observations, keys, action))
+        if known.any():
+            self._remember(observations, keys, action, reward, known, salience)
+        self._replay(reward, surprise, done, learned)
+
+    def _held(
+        self,
+        observations: np.ndarray,
+        keys: np.ndarray | None,
+        action: np.ndarray,
+        memory: FastSynapses | None = None,
+    ) -> np.ndarray:
+        """Each stream's record of its chosen action in reward units: the records' vote for
+        the chosen motor neuron, or the read of ``memory`` alone, averaged over the slots of a
+        slotted readout."""
+        hippocampus = self.hippocampus
+        assert hippocampus is not None
+        if not hippocampus.amplitude:
+            return np.zeros(len(action))
+        if memory is None:
+            read = self._vote(observations, keys)
+        else:
+            assert keys is not None  # one store is read under the keys it is keyed by
+            read = memory.recall(keys)
+        vote = np.asarray(read) / hippocampus.amplitude
+        rows = np.arange(len(action))
+        if action.ndim == 2:
+            chosen = action + self.learner.slot_offsets[None, :]
+            return np.asarray(vote[rows[:, None], chosen].mean(axis=1))
+        return np.asarray(vote[rows, action])
+
+    def _replay(
+        self, reward: np.ndarray, surprise: np.ndarray, done: np.ndarray, learned: np.ndarray
+    ) -> None:
+        """Reverse replay: a reward credits, backwards along the stream's recent path (one
+        decision per situation, the one that left it), the decisions whose own outcome was
+        nothing, back to the last decision whose outcome was known (a reward or a
+        punishment), each discounted per step of the path and up to the discounted reward.
+        A reward that ends an attempt (``done``) closes an episode: it is replayed whole, into
+        both kinds of record. In a continuing life, where it is not known where the paid
+        effort began, a reward is replayed in proportion to its surprise (the reward less
+        what the memory expected of the paid decision): into each decision's context record,
+        that decision in the history it was taken in, and into its place record only as far
+        as it was an exploration rather than the brain's best guess. There an expected reward
+        replays nothing. Replay only adds credit."""
         if not self.memory_replay or len(self._paths) != len(reward):
             return
         gamma = float(self.basal_ganglia.config.gamma)
-        paid = np.flatnonzero((reward > 0) & done)
+        temporal = self.context_memory
+        paid = (reward > 0) & (surprise > 0) & learned
+        if temporal is None:
+            paid &= done  # without context records, a continuing life replays nothing
+        rows = [row for row in np.flatnonzero(paid) if self._paths[row]]
+        width = len(reward)
         for k in range(1, self.memory_replay + 1):
-            # the decision k steps before the credited one, the last entry of each path
-            rows = [row for row in paid if len(self._paths[row]) > k]
+            discount = gamma**k
+            if not discount:
+                break  # with gamma zero no credit flows back
+            # the decision k steps before the paid one (each path's last entry), while the
+            # outcomes on the way back were nothing
+            rows = [
+                row
+                for row in rows
+                if len(self._paths[row]) > k
+                and self._paths[row][-1 - k][4]
+                and self._paths[row][-1 - k][3] == 0.0
+            ]
             if not rows:
                 break
-            entries = [self._paths[row][-1 - k] for row in rows]
-            observations = np.zeros((len(reward), len(self.sensory_index)))
+            earlier = [self._paths[row][-1 - k] for row in rows]
+            observations = np.zeros((width, len(self.sensory_index)))
+            observations[rows] = [entry[2] for entry in earlier]
             keys = None
-            if entries[0][0] is not None:
-                keys = np.zeros((len(reward), len(entries[0][0])))
-                keys[rows] = [entry[0] for entry in entries]
-            action = np.zeros((len(reward), *np.shape(entries[0][1])), dtype=np.int64)
-            observations[rows] = [entry[2] for entry in entries]
-            action[rows] = [entry[1] for entry in entries]
-            value = np.zeros(len(reward))
-            value[rows] = reward[rows] * gamma**k
-            write = value > 0  # replay only adds credit; with gamma zero none flows back
-            if not write.any():
-                break
-            self._remember(
-                observations, keys, action, value,
-                SynapticMemory.salience_vector(value, len(value)), write,
+            if earlier[0][0] is not None:
+                keys = np.zeros((width, len(earlier[0][0])))
+                keys[rows] = [entry[0] for entry in earlier]
+            action = np.zeros((width, *np.shape(earlier[0][1])), dtype=np.int64)
+            action[rows] = [entry[1] for entry in earlier]
+            ended = np.zeros(width, bool)
+            ended[rows] = done[rows]
+            guess = np.ones(width)
+            guess[rows] = [entry[5] for entry in earlier]
+            # what the written records hold: both kinds at the end of an attempt, the context
+            # records in a continuing life
+            held = self._held(observations, keys, action)
+            if temporal is not None and keys is not None and not ended[rows].all():
+                held = np.where(ended, held, self._held(keys, keys, action, temporal))
+            credit = np.zeros(width)
+            credit[rows] = np.minimum(
+                discount * surprise[rows], discount * reward[rows] - held[rows]
             )
+            write = credit > 0
+            if (write & ended).any():
+                self._remember(observations, keys, action, held + credit, write & ended)
+            if (write & ~ended).any():
+                assert temporal is not None and keys is not None
+                steady = np.zeros(width)  # every write moves a record equally
+                self._record(keys, action, held + credit, steady, write & ~ended, temporal)
+                # the place record only as far as the decision was an exploration: the best
+                # guess tells nothing about what paid apart from its history
+                place = self._held(observations, observations, action, self.hippocampus)
+                surprising = credit * (1.0 - guess)
+                gain = write & ~ended & (surprising > 0)
+                if gain.any():
+                    target = place + np.minimum(surprising, discount * reward - place)
+                    gain &= target > place
+                    if gain.any():
+                        self._record(observations, action, target, steady, gain)
 
     def _end_attempt(self, done: np.ndarray) -> None:
         """The streams whose attempt ended begin the next with no context and no path."""
@@ -2174,13 +2324,11 @@ class Brain:
                 if not self.memory_choice:
                     self._record(keys, action, reward, importance)
                 else:
-                    # A reward, a punishment or the end of the attempt is known; a zero outcome
-                    # in the middle of an attempt is not yet one and leaves the record as it was.
-                    self._remember(
-                        keys, self._decided(len(action)), action, reward, importance,
-                        (importance > 0) | done,
+                    self._received(reward)
+                    self._record_outcome(
+                        keys, action, reward, done, np.ones(len(action), bool),
+                        salience=None if salience is None else importance,
                     )
-                    self._replay(reward, done)
             if self.memory_choice and done.any():
                 self._end_attempt(done)
             if trace is not None and done.any():
@@ -2218,15 +2366,19 @@ class Brain:
         observations: np.ndarray,
         keys: np.ndarray | None,
         action: np.ndarray,
-        reward: np.ndarray,
-        importance: np.ndarray,
-        known: np.ndarray,
+        value: np.ndarray,
+        streams: np.ndarray,
+        salience: np.ndarray | None = None,
     ) -> None:
-        """The episodic memory's write: the place records under the observations and, with
-        a temporal context, the context records under the decision's keys."""
-        self._record(observations, action, reward, importance, known)
+        """The episodic memory's write for the streams in ``streams``: the place records under
+        the observations and, with a temporal context, the context records under the
+        decision's keys. The stream's record moves ``memory_rate`` toward ``value`` at once,
+        and the shared record ``consolidation`` toward it, faster with a supplied
+        ``salience``; without one every write moves a record equally."""
+        sized = np.zeros(len(action)) if salience is None else salience
+        self._record(observations, action, value, sized, streams)
         if self.context_memory is not None and keys is not None:
-            self._record(keys, action, reward, importance, known, self.context_memory)
+            self._record(keys, action, value, sized, streams, self.context_memory)
 
     def _record(
         self,
@@ -2431,14 +2583,22 @@ class Brain:
         keys = np.zeros((streams, longest, width))
         observations = np.zeros((streams, longest, len(self.sensory_index)))
         actions = np.zeros((streams, longest, slots) if slots > 1 else (streams, longest), int)
+        rewards = np.zeros((streams, longest))
+        received = np.zeros((streams, longest), bool)
+        guesses = np.zeros((streams, longest))
         for row, path in enumerate(self._paths):
-            for index, (key, action, observation) in enumerate(path):
+            for index, (key, action, observation, reward, known, guess) in enumerate(path):
                 if key is not None:
                     keys[row, index] = key
                 actions[row, index], observations[row, index] = action, observation
+                rewards[row, index], received[row, index] = reward, known
+                guesses[row, index] = guess
         saved = {
             "episode/path/actions": actions,
             "episode/path/observations": observations,
+            "episode/path/rewards": rewards,
+            "episode/path/received": received,
+            "episode/path/guess": guesses,
             "episode/path/lengths": np.array([len(path) for path in self._paths]),
         }
         if self.context_memory is not None:
@@ -2591,12 +2751,17 @@ class Brain:
                     keys = data.get("episode/path/keys")
                     actions = data["episode/path/actions"]
                     observations = data["episode/path/observations"]
+                    rewards, received = data["episode/path/rewards"], data["episode/path/received"]
+                    guesses = data["episode/path/guess"]
                     result._paths = [
                         [
                             (
                                 None if keys is None else keys[row, index].astype(float),
                                 np.array(actions[row, index], dtype=np.int64),
                                 observations[row, index].astype(float),
+                                float(rewards[row, index]),
+                                bool(received[row, index]),
+                                float(guesses[row, index]),
                             )
                             for index in range(int(lengths[row]))
                         ]

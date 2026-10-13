@@ -16,8 +16,8 @@ seen and done before ─┐                                  ├─► mean ─�
 observation now ──────┴─► temporal context ─► context records ─┘           ├─► softmax ─► action
 observation now ─► settle ─► motor readout ─────────────────────────────────┘
 
-outcome, when known ──────────► record of the chosen action under its key
-attempt ended in reward ───────► replay: the decisions on its path, recorded again backwards
+outcome, when known ─────────────► record of the chosen action under its key
+reward beyond what was expected ─► replay: the decisions on the recent path, backwards
 ```
 
 - **Two keys for every record.** Each record is kept twice. The place records are keyed by
@@ -35,26 +35,38 @@ attempt ended in reward ───────► replay: the decisions on its pa
   first (a fixed random expansion to 1,024 cells, of which the 24 most active stay), so
   different situations write different synapses.
 - **What is written.** The outcome of the chosen action, when it is known: a reward or a
-  punishment, the end of an attempt (`done`), or a surprise that woke a calm `live` brain. A
-  zero outcome in the middle of an attempt is not yet an outcome and leaves the record as it
-  was. A caregiver's demonstration (`teacher=`) is recorded for the situation it was shown in,
-  at `memory_demonstrations`, as if the shown action had paid that much. A write moves the
-  record halfway toward the outcome (`memory_rate` 0.5): one outcome is remembered at once,
-  and one misleading outcome cannot erase what repeated outcomes established.
-- **Replay.** When an attempt ends in reward, the decisions on its path are recorded again,
-  backwards, at the reward discounted by the actor's `gamma` per step, up to `memory_replay`
-  steps. The path keeps one decision per situation, the one that left it: an action that left
-  the situation unchanged is not on the path and is not credited. A continuing life without
-  `done` is not replayed; there, a reward is recorded for the decision that earned it and
-  earlier decisions are credited by the actor's eligibility.
+  punishment, the end of an attempt (`done`), a surprise that woke a calm `live` brain, or an
+  outcome the caller marks with a positive `salience=`. A zero outcome in the middle of an
+  attempt is not yet an outcome and leaves the record as it was. A caregiver's demonstration
+  (`teacher=`) is recorded for the situation it was shown in, at `memory_demonstrations`, as
+  if the shown action had paid that much.
+- **Replay.** A reward replays the stream's recent path backwards, up to `memory_replay`
+  decisions. The path keeps one decision per situation, the one that left it: an action that
+  left the situation unchanged is not on the path and is not credited. Replay runs through the
+  decisions whose own outcome was nothing and stops at the last decision whose outcome was
+  known, a reward or a punishment: outcomes bound the episode, so nothing has to mark the end
+  of an attempt. Each replayed decision gains credit discounted by the actor's `gamma` per
+  step, up to the discounted reward, and replay only ever adds credit.
+  - A reward that ends an attempt (`done=True`) closes an episode: it is replayed whole, into
+    both kinds of record.
+  - In a continuing life it is not known where the paid effort began, so a reward is replayed
+    in proportion to its surprise, the reward less what the memory expected of the decision
+    it paid; an expected reward replays nothing. Each decision gains it in its context
+    record, that decision in the history it was taken in, and in its place record only as far
+    as it was an exploration rather than the brain's best guess: a habitual choice that
+    happened to come before a reward says nothing about what paid apart from its history, an
+    exploration that came before a surprising reward says much.
 - **The vote.** At every choice, greedy or sampled, the mean of the place and the context
-  records is added to the motor readout before the softmax. The slow cortex keeps learning from the actions the
-  brain takes, so what the memory chose and what paid is consolidated into the synapses over
-  time.
+  records is added to the motor readout before the softmax. The slow cortex keeps learning
+  from the actions the brain takes, so what the memory chose and what paid is consolidated
+  into the synapses over time.
 - **Two speeds.** The store has the per-stream fast residual and the shared consolidated
-  matrix of [`SynapticMemory`](memory.md#memory-in-the-composed-brain): a record is at full
-  strength at once in its stream and is consolidated with repetition and salience
-  (`consolidation`).
+  matrix of [`SynapticMemory`](memory.md#memory-in-the-composed-brain). A write corrects the
+  stream's record halfway at once (`memory_rate` 0.5), and that correction fades by
+  `memory_decay` per later write; the record every stream shares, and that a reset keeps,
+  moves `consolidation` (0.05) of the way, faster with a supplied `salience=`. One outcome is
+  remembered at once; repetition makes a record lasting, and one misleading outcome cannot
+  erase what repetition established.
 
 ## Turning it on
 
@@ -72,9 +84,9 @@ action = brain.live([[1.0, 0.0, 0.0]])                      # the record votes f
 | --- | --- | --- |
 | `memory_choice` | `True` | The records vote in the choice; the founder `False` keeps the hippocampus of earlier releases, keyed by the senses and read into the motor drive |
 | `memory_context` | `0.5` | The share of the past in the context key; 0 keeps the place records alone |
-| `memory_replay` | `8` | How many decisions back an attempt that ended in reward is replayed |
+| `memory_replay` | `8` | How many decisions back a surprising reward is replayed |
 | `memory_demonstrations` | `1.0` | The value at which a shown action is recorded; 0 records none |
-| `memory_rate` | `0.5` | How far one write moves a record toward the outcome; 1.0 lets the last outcome replace it |
+| `memory_rate` | `0.5` | How far one write moves the stream's record at once; 1.0 lets the last outcome replace it |
 | `memory_expansion`, `memory_winners` | `1024`, `24` | Separation of the keys; 0 cells use the key as it is |
 
 These are construction settings: pass them to `Brain.compose(...)`; `retune` refuses them,
@@ -84,38 +96,38 @@ on in `Brain(...)` and `Brain.build(...)`, where every setting has to be named.
 
 ## When to turn it on
 
-Turn it on when a skill is taught by showing or correcting, when a chain of actions is paid at
-its end and the world marks the end of each attempt, when a cue that is gone must still decide
-an answer, and for sequences of the brain's own actions. Measured on fresh founders against the
-composition without it (development tasks, never used to choose the settings):
+Turn it on when a skill is taught by showing or correcting, when a chain of actions is paid only
+at its end, when a cue that is gone must still decide an answer, and for sequences of the
+brain's own actions. Nothing has to mark the end of an attempt. Measured on fresh founders and
+seeds against the composition without it (the default `Brain.compose`), none of them used to
+choose the settings:
 
-| Task (fresh founders) | Without | With `memory_choice=True` |
+| Task (fresh founders or seeds) | Without | With `memory_choice=True` |
 | --- | --- | --- |
-| Four-step crafting chain, a caregiver corrects executed mistakes (5 founders): success after teaching | 41.6% | 94.4% |
-| the same, then 80 episodes alone through `live` | 38.0% | 99.2% |
-| the same chain from reward alone, through `step`, then alone | 15.8% | 79.0% |
-| A second crafting chain (5 seeds): taught, after the caregiver leaves | 33.4% | 99.4% |
-| the same from reward alone, after 80 episodes alone | 20.0% | 70.2% |
+| Four-step crafting chain, a caregiver corrects executed mistakes (5 founders): success after teaching | 38.1% | 98.7% |
+| the same, then 80 episodes alone through `live` | 9.0% | 97.8% |
+| the same chain from reward alone, through `step`: after training, then alone | 9.1%, 9.5% | 73.2%, 88.0% |
+| A second crafting chain (5 seeds): taught, after the caregiver leaves | 2.8% | 99.0% |
+| the same from reward alone, after the caregiver leaves | 15.0% | 75.6% |
+| A four-step chain in one continuing life, paid only at its completion, no `done` (10 seeds): greedy completions per thousand moments | 0 | 108 |
+| Rules that reverse in a continuing life (odour nursery, 20 lives): lives within every gate; reversal lags | 20 of 20; 46, 57 | 20 of 20; 55, 52 |
 | Delayed response learned from reward (6 seeds) | | 6 of 6 at 1.0 |
-| Continuing bandit whose history does not matter (6 seeds), hit rate | 0.73 | 1.00 |
-| Two four-note songs cued once, 10 lessons (6 seeds): notes right, whole songs | 0.60, 1 of 12 | 0.79, 4 of 12 |
-| Taught recall of a vanished cue (4 founders): clean-4, clean-8, distractor-2, capacity-2 | 0.55 | 0.74 |
+| Two four-note songs cued once, 10 lessons (6 seeds): notes right | 0.52 | 0.65 |
+| Taught recall of a vanished cue (4 founders): clean-4, clean-8, distractor-2, capacity-2 | 0.70 | 0.75 |
+| Continuing bandit whose history does not matter (6 seeds): hit rate | 0.86 | 0.75 |
 
-The recall gain is uneven: two founders on which recall was weak gained 0.37 and 0.49; on one
-whose recall was already strong (0.875) it fell to 0.68, where order (which of two cues came
-last) rose from 0.00 to 1.00.
+Where it does not help yet: on the bandit whose history does not matter it scored below the
+composition without it; on the continuing chain, four of the ten seeds completed no chain with
+or without it; the recall gain is uneven, +0.31 on one founder and -0.20 on another; and after
+80 episodes alone through `step`, the frozen greedy policy of the corrected chain can stall at
+one stage while the sampled policy still succeeds (through `live` it does not). It is not the
+default for now.
 
-Not yet in a continuing life whose rules reverse: in the odour nursery's confirmation lives,
-three of twenty reversed or returned incompletely (their last hundred actions 76 to 82%
-optimal), and one of them also lost its stable pair in a third of its probes during one rule,
-where the composition without it passed every gate. A record of a punished approach keeps voting against the odour that now
-pays. In a continuing life without `done`, no attempt is replayed: on the prerequisite-chain
-nursery's observed chain, paid only at the completion (six seeds, 20,000 moments), the
-completing action's record spread to neighbouring stages and lowered the stage accuracy from
-0.67 to 0.33. With each completion marked `done=True`, the same memory answered every stage
-right on reset copies and completed 186 chains per thousand moments greedily, where the
-composition without it completed 42 (0 when marked the same way) and a tabular learner with
-the same information 250. Mark the end of each attempt.
+On the [Stone Age environment](https://github.com/ali12mahmood12345-boop/cadence-stone-age)'s
+own benchmarks of its four-step crafting chain (seeds 42 to 46, frozen full-chain success
+after training): backward lessons stopped at competency go from 8.4% to 25.6% (the untrained
+founder 9.0%, uniform random 7.2%) with a fifth of the lesson and rescue trips, and retention
+rescue goes from 6.2% to 37.4%, keeping all four steps where without it two of them collapse.
 
 ## Settings
 
@@ -127,9 +139,10 @@ the same information 250. Mark the end of each attempt.
 | `memory_expansion` | many situations must be told apart | (0 uses the key unseparated) |
 | `memory_rate` | the world changes quickly and the latest outcome is the best guide | outcomes are noisy, or one failure should not undo a learned skill |
 
-Mark the end of an attempt with `done=True` where the world has one: a chain completed, a
-trial over, a game lost. The end makes the outcome known, starts the next attempt with a fresh
-context and lets a rewarded attempt be replayed.
+Where the world has attempts (a chain completed, a trial over, a game lost), `done=True` makes
+the outcome of the last decision known and starts the next attempt with a fresh context and
+path. The memory needs no such mark to learn a sequence: rewards and punishments bound what a
+reward replays.
 
 ## Check that the memory does the work
 
