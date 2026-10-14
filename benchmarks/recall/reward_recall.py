@@ -113,20 +113,27 @@ def restore(brain: Any, saved: tuple[np.ndarray, np.ndarray, np.ndarray]) -> Non
     trace.cold[...] = saved[2]
 
 
-def episodes_of(rng: np.random.Generator, names: list[str], count: int) -> list[dict[str, Any]]:
+def episodes_of(
+    rng: np.random.Generator, names: list[str], count: int, history: bool = False
+) -> list[dict[str, Any]]:
     """``count`` single-stream episodes, conditions drawn uniformly, every stream of each
-    frozen eight-stream draw used in turn (the draws keep their paired labels)."""
+    frozen eight-stream draw used in turn (the draws keep their paired labels). With
+    ``history`` the asked cue's raw payload is appended at the query (the external-history
+    input of the finite chamber), a reward-path control and never a recall arm."""
     out: list[dict[str, Any]] = []
     while len(out) < count:
         name = names[int(rng.integers(len(names)))]
         episode = inputs.make_episode(rng, CONDITIONS[name])
+        observations = episode.observations
+        if history:
+            observations = inputs.append_observed_history(observations)
         for row in range(inputs.STREAMS):
             if len(out) >= count:
                 break
             out.append(
                 {
                     "condition": name,
-                    "observations": np.ascontiguousarray(episode.observations[:, row, :]),
+                    "observations": np.ascontiguousarray(observations[:, row, :]),
                     "label": int(episode.labels[row]),
                 }
             )
@@ -176,8 +183,13 @@ class Life:
     """One continuing ``Brain.live`` stream across episodes; the pay of a query arrives with the
     next episode's first observation."""
 
-    def __init__(self, brain: Any, gated: bool, pay: dict[str, float]) -> None:
-        self.brain, self.gated, self.pay = brain, gated, pay
+    def __init__(
+        self, brain: Any, gated: bool, pay: dict[str, float], interface: str = "live"
+    ) -> None:
+        if interface not in ("live", "step"):
+            raise ValueError("interface is live or step")
+        self.brain, self.gated, self.pay, self.interface = brain, gated, pay, interface
+        self.call = brain.live if interface == "live" else brain.step
         self.pending: float | None = None
         self.started = False
 
@@ -186,10 +198,10 @@ class Life:
     ) -> tuple[int, int]:
         saved = snapshot(self.brain) if self.gated else None
         if not self.started:
-            out = self.brain.live(x[None, :])
+            out = self.call(x[None, :])
             self.started = True
         else:
-            out = self.brain.live(
+            out = self.call(
                 x[None, :],
                 reward=np.asarray([0.0 if reward is None else reward]),
                 done=np.asarray([done]),
@@ -227,7 +239,9 @@ class Life:
         self.pending = None
 
 
-def evaluate(checkpoint: Path, protocol: dict[str, Any], gated: bool, seed: int) -> dict[str, Any]:
+def evaluate(
+    checkpoint: Path, protocol: dict[str, Any], gated: bool, seed: int, history: bool = False
+) -> dict[str, Any]:
     """Frozen copies read every condition under each mode and lesion; the checkpoint stays."""
     from cadence import Brain  # noqa: PLC0415
 
@@ -256,8 +270,9 @@ def evaluate(checkpoint: Path, protocol: dict[str, Any], gated: bool, seed: int)
                 rng = np.random.default_rng(
                     np.random.SeedSequence([seed, 11, protocol["conditions"].index(name)])
                 )
-                episodes = episodes_of(rng, [name], count)
+                episodes = episodes_of(rng, [name], count, history)
                 hits = 0
+                ones = 0
                 for episode in episodes:
                     brain.reset()
                     observations = episode["observations"]
@@ -280,7 +295,9 @@ def evaluate(checkpoint: Path, protocol: dict[str, Any], gated: bool, seed: int)
                             writes[kind][0] += int(write == WRITE)
                             writes[kind][1] += 1
                     hits += int(answer == episode["label"])
+                    ones += int(answer == 1)
                 out[mode][lesion][name] = hits / count
+                out[mode][lesion][name + "/answer-1-share"] = ones / count
     if sha256(checkpoint) != before:
         raise RuntimeError("evaluation changed the checkpoint")
     out["write_share_greedy_intact"] = {
@@ -369,21 +386,23 @@ def run_founder(job: tuple[str, int, str, str, str]) -> dict[str, Any]:
 
     began = time.time()
     protocol, digest = load_protocol(Path(protocol_path))
-    gated = bool(protocol["arms"][arm]["gated"])
+    spec = protocol["arms"][arm]
+    gated = bool(spec["gated"])
+    history = bool(spec.get("history", False))
     recipe = protocol["recipes"][recipe_name]
     directory = Path(out) / recipe_name / arm / f"founder-{seed}"
     directory.mkdir(parents=True, exist_ok=True)
     brain = compose(recipe, seed, gated)
-    life = Life(brain, gated, protocol["pay"])
+    life = Life(brain, gated, protocol["pay"], spec.get("interface", "live"))
     rng = np.random.default_rng(np.random.SeedSequence([seed, 3]))
-    episodes = episodes_of(rng, protocol["conditions"], protocol["training_episodes"])
-    history = history_control(protocol, seed)
+    episodes = episodes_of(rng, protocol["conditions"], protocol["training_episodes"], history)
+    control = history_control(protocol, seed)
     probes: dict[str, Any] = {}
     segments: dict[str, Any] = {}
     checkpoint = directory / "episodes-0.npz"
     brain.save(checkpoint)
-    probes["0"] = evaluate(checkpoint, protocol, gated, seed)
-    probes["0"]["gates"] = gates_for(probes["0"], protocol, history)
+    probes["0"] = evaluate(checkpoint, protocol, gated, seed, history)
+    probes["0"]["gates"] = gates_for(probes["0"], protocol, control)
     probe_every = int(protocol["probe_every"])
     tally = Tally()
     for index, episode in enumerate(episodes, start=1):
@@ -392,8 +411,8 @@ def run_founder(job: tuple[str, int, str, str, str]) -> dict[str, Any]:
             life.settle_pay(tally)  # the stream pauses at an episode boundary with no pay owed
             checkpoint = directory / f"episodes-{index}.npz"
             brain.save(checkpoint)
-            probes[str(index)] = evaluate(checkpoint, protocol, gated, seed)
-            probes[str(index)]["gates"] = gates_for(probes[str(index)], protocol, history)
+            probes[str(index)] = evaluate(checkpoint, protocol, gated, seed, history)
+            probes[str(index)]["gates"] = gates_for(probes[str(index)], protocol, control)
             segments[str(index)] = tally.summary()
             tally = Tally()
             print(
@@ -420,13 +439,15 @@ def run_founder(job: tuple[str, int, str, str, str]) -> dict[str, Any]:
         "arm": arm,
         "recipe": recipe_name,
         "gated": gated,
+        "history": history,
+        "interface": spec.get("interface", "live"),
         "genes": {
             k: (v if isinstance(v, (int, float, str, bool, list, dict)) else repr(v))
             for k, v in brain.describe().items()
         },
         "training": segments,
         "probes": probes,
-        "history_control": history,
+        "history_control": control,
         "random_control": random_control(protocol, seed),
         "cadence_version": cadence.__version__,
         "numpy_version": np.__version__,

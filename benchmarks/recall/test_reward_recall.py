@@ -216,3 +216,52 @@ def test_run_founder_writes_a_founder_file_with_probes_gates_and_sources(
     assert body["training"]["12"]["episodes"] == 6
     assert "src/cadence/generic.py" in body["sources"] and body["gated"] is True
     assert body["genes"]["layout"]["slots"] == [2, 2]
+
+
+def test_history_episodes_carry_the_asked_cue_at_the_query_only() -> None:
+    rng = np.random.default_rng(4)
+    plain = rr.episodes_of(np.random.default_rng(4), ["order-latest-1"], 8)
+    shown = rr.episodes_of(rng, ["order-latest-1"], 8, history=True)
+    for a, b in zip(plain, shown, strict=True):
+        assert a["label"] == b["label"]
+        assert np.array_equal(a["observations"][:, : inputs.HISTORY.start],
+                              b["observations"][:, : inputs.HISTORY.start])
+        assert not a["observations"][:, inputs.HISTORY].any()
+        assert b["observations"][-1, inputs.HISTORY].any()  # the query carries the history
+        assert not b["observations"][:-1, inputs.HISTORY].any()
+
+
+def test_a_step_life_uses_step_and_the_spy_sees_the_same_pay_custody() -> None:
+    class StepSpy(SpyBrain):
+        def step(self, x, *, reward=None, done=None, teacher=None):  # noqa: ANN001
+            assert teacher is None
+            return self.live(x, reward=reward, done=done)
+
+        def live(self, x, *, reward=None, done=None):  # noqa: ANN001
+            self.interface_calls = getattr(self, "interface_calls", 0) + 1
+            return super().live(x, reward=reward, done=done)
+
+    spy = StepSpy([(0, rr.WRITE)], gated=False)
+    life = rr.Life(spy, False, {"right": 1.0, "wrong": -1.0}, interface="step")
+    assert life.call == spy.step
+    tally = rr.Tally()
+    for e in rr.episodes_of(np.random.default_rng(2), ["clean-0"], 2):
+        life.episode(e, tally)
+    life.settle_pay(tally)
+    starts = [c for c in spy.calls if c[0] == "start"]
+    assert len(starts) == 3 and starts[1][2] is True and starts[2][2] is True
+    with pytest.raises(ValueError):
+        rr.Life(spy, False, {"right": 1.0, "wrong": -1.0}, interface="telepathy")
+
+
+@needs_cadence
+def test_run_founder_records_interface_history_and_answer_shares(
+    tmp_path: Path, protocol: dict
+) -> None:
+    used = tmp_path / "protocol.json"
+    used.write_text(json.dumps(protocol))
+    result = rr.run_founder((str(used), 4, "exposed_step", "arena", str(tmp_path)))
+    assert result["interface"] == "step" and result["history"] is True and result["gated"] is False
+    probe = result["probes"]["12"]["greedy"]["intact"]
+    assert "clean-0/answer-1-share" in probe and 0.0 <= probe["clean-0/answer-1-share"] <= 1.0
+    assert result["genes"]["actor"]["eta"] == 0.03 and result["genes"]["arousal"]["need"] == 0.2

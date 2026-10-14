@@ -21,44 +21,39 @@
   "arms": {
     "fixed": {
       "gated": false,
+      "interface": "live",
       "note": "the founder's law: the trace is written after every event"
     },
     "gated": {
       "gated": true,
+      "interface": "live",
       "note": "a second motor slot of two choices, hold or write; after a hold the instrument restores the trace, its last activation and its cold flag to their values before the moment, which equals skipping the founder's write; the choice is sampled and credited by the same actor and the same reward"
+    },
+    "exposed": {
+      "gated": false,
+      "interface": "live",
+      "history": true,
+      "note": "the asked cue's raw payload appended at the query, the external-history input: a reward-path control, never a recall arm"
+    },
+    "fixed_step": {
+      "gated": false,
+      "interface": "step",
+      "note": "the founder's law: the trace is written after every event"
+    },
+    "gated_step": {
+      "gated": true,
+      "interface": "step",
+      "note": "a second motor slot of two choices, hold or write; after a hold the instrument restores the trace, its last activation and its cold flag to their values before the moment, which equals skipping the founder's write; the choice is sampled and credited by the same actor and the same reward"
+    },
+    "exposed_step": {
+      "gated": false,
+      "interface": "step",
+      "history": true,
+      "note": "the asked cue's raw payload appended at the query, the external-history input: a reward-path control, never a recall arm"
     }
   },
   "recipes": {
-    "composed": {
-      "compose": {
-        "modules": [
-          32
-        ],
-        "lateral": 0.0
-      },
-      "note": "the 0.83.0 composition of the trace (amplitude 3.0, scale 1.2, retention 0) and of the actor-critic; arousal on; no episodic memory",
-      "arousal": {
-        "need": 0.2,
-        "youth": 300
-      }
-    },
-    "recall5": {
-      "compose": {
-        "modules": [
-          32
-        ],
-        "lateral": 0.0,
-        "working_memory_decay": 0.8,
-        "working_memory_amplitude": 0.3,
-        "working_memory_scale": 12.0
-      },
-      "note": "recall/5's declared trace genes at the composition of releases before 0.82.0; the actor-critic at the 0.83.0 composition",
-      "arousal": {
-        "need": 0.2,
-        "youth": 300
-      }
-    },
-    "credit": {
+    "delayed": {
       "compose": {
         "modules": [
           32
@@ -66,13 +61,46 @@
         "lateral": 0.0,
         "actor_lam": 0.95,
         "actor_gamma": 0.95,
-        "actor_eta_critic": 5.0
+        "actor_eta_critic": 5.0,
+        "actor_eta": 0.1,
+        "actor_eta_bias": 0.01
       },
-      "note": "the composed trace with the key-door nursery's delayed-credit actor point (lam 0.95, gamma 0.95, critic rate 5)",
       "arousal": {
         "need": 0.2,
         "youth": 300
-      }
+      },
+      "note": "the composed trace (amplitude 3.0, scale 1.2, retention 0) with the key-door nursery's delayed-credit actor point (lam 0.95, gamma 0.95, critic rate 5) at actor step 0.1"
+    },
+    "arena": {
+      "compose": {
+        "modules": [
+          32
+        ],
+        "lateral": 0.0,
+        "actor_lam": 0.95,
+        "actor_gamma": 0.95,
+        "actor_eta_critic": 5.0,
+        "actor_eta": 0.03,
+        "actor_eta_bias": 0.003
+      },
+      "arousal": {
+        "need": 0.2,
+        "youth": 300
+      },
+      "note": "the same at the arena founder's actor step 0.03"
+    },
+    "composed": {
+      "compose": {
+        "modules": [
+          32
+        ],
+        "lateral": 0.0
+      },
+      "arousal": {
+        "need": 0.2,
+        "youth": 300
+      },
+      "note": "the 0.83.0 composition of the trace and of the actor-critic (actor step 1.0, critic rate 0.3, lam 0.8, gamma 0.9): the reference whose step saturates the readout under this pay (development reading of 14 October)"
     }
   },
   "controls": {
@@ -129,5 +157,7 @@
   "caps": {
     "per_founder_arm_seconds": 1800
   },
-  "arousal_note": "every recipe sets the body's need to 0.2 reward per moment, 0.9 of what a life that always answers right earns (pay 1 at the query of an episode of 4.6 moments on average over the conditions; the chain nursery's need_share), and a youth of 300 moments; the other arousal genes are the founders. With the founder need of 0 the brain habituates to pay it cannot predict, stays calm on nine moments of ten and learns from few outcomes (development reading of 14 October)"
+  "arousal_note": "every recipe sets the body's need to 0.2 reward per moment, 0.9 of what a life that always answers right earns (pay 1 at the query of an episode of 4.6 moments on average over the conditions; the chain nursery's need_share), and a youth of 300 moments; the other arousal genes are the founders. With the founder need of 0 the brain habituates to pay it cannot predict, stays calm on nine moments of ten and learns from few outcomes (development reading of 14 October)",
+  "arms_note": "live arms learn only while aroused (the need keeps them aroused until their recent pay meets it); step arms learn from every outcome",
+  "recipes_note": "development recipes; the actor step is the first gene the exposed-cue control separates: at 1.0 every founder-arm read chance at 3,000 episodes, at 0.1 the exposed control learned on one founder of two by 1,500 episodes"
 }
