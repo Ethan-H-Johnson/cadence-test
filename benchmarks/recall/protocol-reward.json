@@ -101,6 +101,46 @@
         "youth": 300
       },
       "note": "the 0.83.0 composition of the trace and of the actor-critic (actor step 1.0, critic rate 0.3, lam 0.8, gamma 0.9): the reference whose step saturates the readout under this pay (development reading of 14 October)"
+    },
+    "delayed-scale12": {
+      "compose": {
+        "modules": [
+          32
+        ],
+        "lateral": 0.0,
+        "actor_lam": 0.95,
+        "actor_gamma": 0.95,
+        "actor_eta_critic": 5.0,
+        "actor_eta": 0.1,
+        "actor_eta_bias": 0.01,
+        "working_memory_scale": 12.0
+      },
+      "arousal": {
+        "need": 0.2,
+        "youth": 300
+      },
+      "note": "the delayed recipe with the trace read loud at birth: working_memory_scale 12, the composition of releases before 0.82.0 (one gene changed against delayed)"
+    },
+    "delayed-recall5": {
+      "compose": {
+        "modules": [
+          32
+        ],
+        "lateral": 0.0,
+        "actor_lam": 0.95,
+        "actor_gamma": 0.95,
+        "actor_eta_critic": 5.0,
+        "actor_eta": 0.1,
+        "actor_eta_bias": 0.01,
+        "working_memory_scale": 12.0,
+        "working_memory_decay": 0.8,
+        "working_memory_amplitude": 0.3
+      },
+      "arousal": {
+        "need": 0.2,
+        "youth": 300
+      },
+      "note": "the delayed recipe with the recall chamber's declared trace recipe (recall/5: decay 0.8, amplitude 0.3, scale 12)"
     }
   },
   "controls": {
