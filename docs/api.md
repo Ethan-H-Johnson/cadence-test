@@ -1153,7 +1153,7 @@ founder genes for a small share of moments; the
 
 ## Learning (`cadence.learning`)
 
-- `LearnerConfig(beta=0.1, eta=0.2, eta_bias=None, centered=True, free_steps=100, nudged_steps=50, tolerance=1e-4, nudge="cross_entropy", temperature=0.2, normalize=0.0, normalize_floor=1e-3, momentum=0.0, decay=0.0, scale_cap=8.0, qualified=False, damping=3)`:
+- `LearnerConfig(beta=0.1, eta=0.2, eta_bias=None, centered=True, free_steps=100, nudged_steps=50, tolerance=1e-4, nudge="cross_entropy", temperature=0.2, normalize=0.0, normalize_floor=1e-3, momentum=0.0, decay=0.0, scale_cap=8.0, qualified=False, damping=3, surprise=False)`:
   `eta_bias` left as `None` derives `eta / 10` at construction; an explicit
   value is kept, and construction warns when a positive `eta` is below
   `eta_bias`, where the bias step dominates (issue 126).

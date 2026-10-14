@@ -116,6 +116,7 @@ retain their own defaults, listed in the [API reference](api.md).
 | `learning_free_steps`, `learning_tolerance` | `1024`, `0.003` | Free answers and teaching; free answers require equation qualification |
 | `learning_nudged_steps` | `12` | Teaching budget; reward eligibility uses its own budget below |
 | `learning_qualified`, `learning_damping` | `False`, `3` | Opt-in qualified teaching and its numerical fallback |
+| `learning_surprise` | `False` | Opt-in: a lesson through `step(teacher=...)`, `fit` or the learner teaches only the rows whose free answer differs from the label ([learning](learning.md#lessons-only-where-the-answer-differs)) |
 | `learning_nudge` | `"cross_entropy"` | Teaching target law; the actor uses its categorical policy law |
 | `learning_normalize`, `learning_normalize_floor`, `learning_momentum` | `0.0`, `0.001`, `0.9` | Teaching optimizer; independent of actor normalization and momentum |
 | `learning_decay`, `learning_scale_cap` | `0.0`, `8.0` | Parameter decay and efficacy cap in the shared learner update machinery |
