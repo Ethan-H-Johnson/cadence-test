@@ -1202,7 +1202,7 @@ founder genes for a small share of moments; the
     `update(free, nudged, opposite=None) -> {"scale_step", "bias_step"}`,
     `apply(delta_scale, delta_bias) -> {"scale_step", "bias_step"}` (a computed step through
     the masks, synapse rates, tying, decay and clipping),
-    `step(drive, labels, warm=None, weight=None) -> (LearnedState, report)`;
+    `step(drive, labels, warm=None, weight=None, answer=None) -> (LearnedState, report)`;
     labels are integer indices within each output group: `(batch,)` for one group,
     `(batch, slots)` for several; `accuracy` averages all row/slot choices;
     Reports include attempted/accepted row presentations, all required phases' steps,
@@ -1281,7 +1281,8 @@ founder genes for a small share of moments; the
   a window of one-hot tokens through one embedding table shared across positions, then a
   dense hidden layer and the outputs, feedback synapses tied in pairs; populations `input`,
   `embedding`, `hidden`, `output`.
-- `LearnedState(free, nudged, opposite=None)`.
+- `LearnedState(free, nudged, opposite=None, taught=None)`; under `surprise`, `taught` marks the
+  rows the lesson taught, and a lesson without such a row holds no states.
 
 ## The agent and the valence (`cadence.plasticity`)
 

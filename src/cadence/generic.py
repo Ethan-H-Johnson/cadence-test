@@ -1542,8 +1542,12 @@ class Brain:
             from .learning import LearningPhaseError
 
             drive = self.stimulus(x)
+            answer = None
+            if self.learner.config.surprise:
+                # the brain's own answer: the settle its act reads, warm from the stream
+                answer = self._choices(self._qualified(drive, self._activity(), operation="act"))
             try:
-                lesson, teaching = self.learner.step(drive, labels)
+                lesson, teaching = self.learner.step(drive, labels, answer=answer)
             except LearningPhaseError as error:
                 self.last_learning.update(
                     {"demonstration_" + name: value for name, value in error.report.items()}

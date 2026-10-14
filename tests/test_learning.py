@@ -397,3 +397,37 @@ def test_every_row_lesson_marks_no_rows_and_counts_none_agreed() -> None:
     assert state.taught is None
     assert report["accepted_presentations"] == 16.0 and report["agreed_presentations"] == 0.0
     assert learner.contrast_updates == 1
+
+
+def test_surprise_with_the_callers_answer_settles_only_the_differing_rows() -> None:
+    selective, every = _learner(True), _learner(False)
+    drive = _blob_drive(every)
+    labels = every.predict(drive)
+    answer = labels.copy()
+    answer[:4] = 1 - answer[:4]  # the caller read a different answer on four rows
+    state, report = selective.step(drive, labels, answer=answer)
+    assert state.taught is not None and state.taught.tolist() == [True] * 4 + [False] * 12
+    assert len(state.free.activation) == 4 and len(state.nudged.activation) == 4
+    assert report["attempted_presentations"] == 16.0
+    assert report["accepted_presentations"] == 4.0 and report["agreed_presentations"] == 12.0
+    assert report["free_row_sweeps"] == 4 * report["free_steps"]
+    every.step(drive[:4], labels[:4])
+    np.testing.assert_allclose(selective.brain.efficacy, every.brain.efficacy, atol=1e-6)
+    np.testing.assert_allclose(selective.brain.bias, every.brain.bias, atol=1e-6)
+
+
+def test_surprise_with_an_agreeing_answer_runs_no_phase() -> None:
+    learner = _learner(True)
+    drive = _blob_drive(learner)
+    labels = 1 - learner.predict(drive)  # the free phase would disagree on every row
+    efficacy = learner.brain.efficacy.copy()
+    state, report = learner.step(drive, labels, answer=labels)
+    assert state.free is None and state.nudged is None and state.opposite is None
+    assert state.taught is not None and not state.taught.any()
+    assert report["accepted"] == 1.0 and report["accepted_presentations"] == 0.0
+    assert report["agreed_presentations"] == 16.0 and report["attempted_presentations"] == 16.0
+    assert report["free_steps"] == 0.0 and report["total_row_sweeps"] == 0.0
+    np.testing.assert_array_equal(learner.brain.efficacy, efficacy)
+    assert learner.contrast_updates == 0
+    with pytest.raises(ValueError):
+        learner.step(drive, labels, answer=labels[:8])

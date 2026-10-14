@@ -303,14 +303,20 @@ cannot certify a deterministic fresh-state mapping without more context.
 ### Lessons only where the answer differs
 
 `LearnerConfig(surprise=True)` (`Brain.compose(..., learning_surprise=True)`) makes a lesson
-teach only the rows whose free answer differs from the label. After the free phase the learner
-reads its own answer for every row; the rows that agree with the label get no nudged phase and
-no update, and the contrast of the others is averaged over them alone. A batch the net answers
-as shown ends after the free phase. The report counts the rows: `attempted_presentations` is
-the batch, `accepted_presentations` the rows taught and `agreed_presentations` the rest;
-`LearnedState.taught` marks the taught rows, and the three states it holds are those rows'
-phases. Through `step(teacher=...)` the same counts arrive under `demonstration_*`, and an
-episodic memory that records demonstrations records the taught rows only.
+teach only the rows whose answer differs from the label. A learner used on its own reads its
+answer from the free phase: it runs on every row, the rows that agree with the label get no
+nudged phase and no update, and the contrast of the others is averaged over them alone. A
+caller that has the net's answer passes it (`step(drive, labels, answer=...)`): the agreeing
+rows are dropped before the free phase, so the lesson settles the differing rows only, and a
+batch without a differing row runs no phase. The composed brain does that through
+`step(teacher=...)`: its answer is the settle its act reads, warm from the stream, so the
+judgment is the one its behaviour shows (a free phase from rest can agree with a label the
+warm act gets wrong, and such a row would then never be taught). The report counts the rows:
+`attempted_presentations` is the batch, `accepted_presentations` the rows taught and
+`agreed_presentations` the rest; `LearnedState.taught` marks the taught rows, and the states it
+holds are those rows' phases. Through `step(teacher=...)` the same counts arrive under
+`demonstration_*`, and an episodic memory that records demonstrations records the taught rows
+only.
 
 The rule is the teaching form of surprise: a demonstration of what the net would have done
 carries no lesson. Select it where a readout saturates under repeated lessons on cases it
