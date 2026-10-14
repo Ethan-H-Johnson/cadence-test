@@ -869,6 +869,29 @@ PYTHONPATH=src python benchmarks/reversal/odour_nursery.py --arms live --seeds 0
     --workers 6 --point '{"learning": {"homeostasis_rate": 0.02}}' --out <gene receipt>
 ```
 
+## Competitor arms: settings
+
+The `elman` and `gru` arms are the conventional online learners of
+[issue 184](https://github.com/muellerberndt/cadence/issues/184) with this chamber's
+information: the odour, the arm's own action and the reward, one update per trial, no
+replay. They are not part of the frozen plan: `--arms elman gru` adds them, and a receipt
+that runs them records their settings under `competitors`, each row's size under
+`learner`, the chamber's readings per rule as for every arm, and in `--report` a
+size-and-work table (hidden width, parameters, updates, multiply-accumulates, guard
+activations, milliseconds per trial); `--verify` checks a competitor row's counters and its
+parameter count against the declared size. Their settings are declared in the chamber
+(`COMPETITOR_SETTINGS`): hidden width 16, temperature 1 and gradient guard 5 from the
+key-door chamber's recurrent arm; no bootstrapping across trials (gamma 0, lam 0, an
+outcome being complete at the next trial, as the tabular arm's update assumes); and the
+actor step 0.05 with the value step 0.1 for both cells, selected on development seeds 0 to
+5 at exposures 300, 1,000, 3,000 and 10,000 over actor steps 0.02, 0.05, 0.1 and 0.2 (the
+value step twice the actor step; 192 lives of development tuning) by the tabular arm's
+rule, the largest share of lives that end every rule at or above 0.9 with ties by the lower
+median reversal lag, and one tie-breaker declared after the sweep for settings that tie
+without a median lag: the higher mean optimal share at the end of rule B. The confirmation
+seeds were not touched. Development receipts of these arms and their readings are kept
+outside this repository, which carries the code, the tests, the protocol and the settings.
+
 ## What this does and does not establish
 
 The `live` arm supplies bounded acquisition, reversal, return and stable-pair evidence

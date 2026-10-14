@@ -55,7 +55,8 @@ temperature 1, clip 5) are the key-door chamber's selected recurrent point carri
 none selected on this chamber's seeds; `protocol.json` declares them under `competitors`.
 A competitor's row records its size (647 parameters for `elman`, 1,703 for `gru`, hidden
 width 16), its parameter updates, forward passes and guard activations, and an analytic
-count of multiply-accumulates, with the probes' work beside them.
+count of multiply-accumulates, with the probes' work beside them. Development receipts of
+the competitor arms and their readings are kept outside this repository.
 
 ## Readings
 

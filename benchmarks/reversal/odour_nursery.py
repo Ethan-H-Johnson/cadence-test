@@ -99,15 +99,19 @@ ARMS = (
 PROTOCOL = Path(__file__).with_name("protocol.json")
 COMPETITORS = ("elman", "gru")
 COMPETITORS_PATH = Path(__file__).resolve().parents[1] / "competitors.py"
-# The competitor arms' settings: the key-door chamber's selected recurrent point carried
-# over, without bootstrapping across trials (gamma 0, lam 0: an outcome is complete at the
-# next trial, as the tabular arm's update assumes). They are declared here, outside the
-# frozen protocol, and every receipt that runs these arms records them.
+# The competitor arms' settings, declared here outside the frozen protocol and recorded
+# in every receipt that runs these arms. No bootstrapping across trials (gamma 0, lam 0: an
+# outcome is complete at the next trial, as the tabular arm's update assumes); hidden
+# width, temperature and guard from the key-door chamber's recurrent arm; the actor step
+# selected on development seeds 0 to 5 at exposures 300 and more over 0.02, 0.05, 0.1 and
+# 0.2 (the value step twice the actor step) by the tabular arm's rule, ties unresolved by
+# the median reversal lag going to the higher mean optimal share at the end of rule B
+# (2026-10-14, 192 lives; the README records the sweep).
 COMPETITOR_SETTINGS: dict[str, dict[str, Any]] = {
     "elman": {
         "hidden": 16,
-        "alpha": 0.02,
-        "alpha_value": 0.04,
+        "alpha": 0.05,
+        "alpha_value": 0.1,
         "gamma": 0.0,
         "lam": 0.0,
         "temperature": 1.0,
@@ -115,8 +119,8 @@ COMPETITOR_SETTINGS: dict[str, dict[str, Any]] = {
     },
     "gru": {
         "hidden": 16,
-        "alpha": 0.02,
-        "alpha_value": 0.04,
+        "alpha": 0.05,
+        "alpha_value": 0.1,
         "gamma": 0.0,
         "lam": 0.0,
         "temperature": 1.0,
