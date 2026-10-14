@@ -210,14 +210,17 @@ _PHASE_KEYS = (
 
 def _rows(state: BrainState, rows: np.ndarray) -> BrainState:
     """The host copy of a batched state restricted to the rows of a boolean mask."""
-
-    def pick(value: np.ndarray | None) -> np.ndarray | None:
-        return None if value is None else np.asarray(value)[rows]
-
+    change = state.activity_change
     return BrainState(
-        pick(state.v), pick(state.activation), pick(state.adaptation), state.steps,
-        activity_change=pick(state.activity_change),
+        np.asarray(state.v)[rows], np.asarray(state.activation)[rows],
+        np.asarray(state.adaptation)[rows], state.steps,
+        activity_change=None if change is None else np.asarray(change)[rows],
     )
+
+
+def _restrict(state: BrainState, taught: np.ndarray | None) -> BrainState:
+    """``state`` restricted to the taught rows, or itself when every row is taught."""
+    return state if taught is None or bool(taught.all()) else _rows(state, taught)
 
 
 def _taught_report(taught: np.ndarray | None, batch: int) -> dict[str, float]:
@@ -946,7 +949,8 @@ class Learner:
             judged = self._differs(np.asarray(answer), labels)
             if not judged.any():
                 return self._untaught(judged)
-            drive, target, warm, weight = self._lesson(judged, drive, target, warm, weight)
+            drive, target, weight = self._lesson(judged, drive, target, weight)
+            warm = None if warm is None else _restrict(warm, judged)
         if cfg.qualified:
             phases: dict[str, Equilibrium] = {}
             phases["free"] = self._qualified_phase(drive, warm, cfg.free_steps)
@@ -957,7 +961,8 @@ class Learner:
             if taught is not None and not taught.any():
                 return self._agreed(free, phases, taught)
             if judged is None:
-                drive, target, free, weight = self._lesson(taught, drive, target, free, weight)
+                drive, target, weight = self._lesson(taught, drive, target, weight)
+                free = _restrict(free, taught)
             for name, sign in (("nudged", 1.0), ("opposite", -1.0)):
                 if name == "opposite" and not cfg.centered:
                     break
@@ -994,7 +999,8 @@ class Learner:
             self._warn_exhausted(exhausted)
             return state, report
         if judged is None:
-            drive, target, free, weight = self._lesson(taught, drive, target, free, weight)
+            drive, target, weight = self._lesson(taught, drive, target, weight)
+            free = _restrict(free, taught)
         nudged = self.nudged(drive, free, target, weight=weight)
         opposite = (
             self.nudged(drive, free, target, sign=-1.0, weight=weight)
@@ -1025,8 +1031,8 @@ class Learner:
         """True per row where an answer differs from its label in any slot."""
         if answer.shape != labels.shape:
             raise ValueError("answer must have the labels' shape")
-        differs = answer != labels
-        return differs.any(axis=1) if differs.ndim == 2 else differs
+        differs = np.asarray(answer != labels, dtype=bool)
+        return np.asarray(differs.any(axis=1)) if differs.ndim == 2 else differs
 
     def _taught(self, free: BrainState, labels: np.ndarray) -> np.ndarray | None:
         """Under ``surprise``, True per row where the free answer differs from its label."""
@@ -1039,17 +1045,12 @@ class Learner:
         taught: np.ndarray | None,
         drive: np.ndarray,
         target: np.ndarray,
-        state: BrainState | None,
         weight: np.ndarray | None,
-    ) -> tuple[np.ndarray, np.ndarray, BrainState | None, np.ndarray | None]:
-        """The rows the phases run on: every row, or the disagreeing ones; ``state`` is the
-        free state or the warm start, restricted the same way."""
-        if taught is None or taught.all():
-            return drive, target, state, weight
-        return (
-            drive[taught], target[taught], None if state is None else _rows(state, taught),
-            None if weight is None else np.asarray(weight)[taught],
-        )
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """The rows the phases run on: every row, or the disagreeing ones."""
+        if taught is None or bool(taught.all()):
+            return drive, target, weight
+        return drive[taught], target[taught], None if weight is None else np.asarray(weight)[taught]
 
     def _untaught(self, taught: np.ndarray) -> tuple[LearnedState, dict[str, float]]:
         """The lesson of a batch whose caller-read answer matches every label: no phase runs,
