@@ -32,6 +32,16 @@ other arousal genes at their founders. With the founder need of 0 the brain habi
 it cannot predict, stays calm on nine moments of ten and learns from few outcomes; with the
 need, the unmet share keeps it aroused and learning until its recent pay meets the need.
 
+The development recipes keep the composed trace and set the actor at the key-door nursery's
+delayed-credit point (lam 0.95, gamma 0.95, critic rate 5) with the actor step at 0.1 or 0.03:
+at the composed step of 1.0 the readout saturates onto one answer under this pay. An arm may
+live through `step` instead of `live`, and an `exposed` control appends the asked cue's raw
+payload at the query, the external-history input, to show the reward path works before any
+recall is read. Two recipes read the trace loud at birth (scale 12, alone and with the recall
+chamber's declared trace recipe) as declared comparisons. The development readings of these
+arms are the owner's and are not part of this repository; the confirmation founders stay
+unopened and no default changes.
+
 ## Demonstrated limitation
 
 The finite continuing recall chamber's confirmations recall/4 and recall/5 on fresh founders
