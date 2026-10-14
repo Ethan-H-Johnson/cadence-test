@@ -39,7 +39,23 @@ under reward; 0.82.0 removed that gene. Four controls: `random`, uniform over ev
 action; `stationary`, uniform over the chain's actions, the memoryless ceiling of the hidden
 mode; `frozen`, the newborn founder acting greedily; `tabular`, Q-learning over the stage it
 observes (one state in the hidden mode; alpha 0.1, epsilon 0.1, gamma 0.95), the competent
-learner with the same information.
+learner with the same information. Two competitor arms of the comparison thread of
+[issue 183](https://github.com/muellerberndt/cadence/issues/183) and
+[issue 184](https://github.com/muellerberndt/cadence/issues/184), shared with the odour
+nursery through [`benchmarks/competitors.py`](../competitors.py): `elman`, an online Elman
+actor-critic with the same information, whose TD(lambda) eligibility traces are the
+gradients of the executed action's log-probability and of the value through the current
+moment's hidden state, bounded in norm by a guard, the key-door chamber's `recurrent` arm on
+this chamber's sixteen inputs and six actions; `gru`, the same actor-critic with a gated
+recurrent unit, its gradients written by hand and checked against finite differences by the
+tests. Both learn at every moment, keep no replay and form no batch, carry their hidden
+state through the life, and receive no mark of an attempt's end, as the brain receives
+none. Their settings (hidden 16, alpha 0.02, alpha_value 0.04, gamma 0.95, lam 0.8,
+temperature 1, clip 5) are the key-door chamber's selected recurrent point carried over,
+none selected on this chamber's seeds; `protocol.json` declares them under `competitors`.
+A competitor's row records its size (647 parameters for `elman`, 1,703 for `gru`, hidden
+width 16), its parameter updates, forward passes and guard activations, and an analytic
+count of multiply-accumulates, with the probes' work beside them.
 
 ## Readings
 
@@ -51,7 +67,12 @@ probability and its margin at every stage (observed mode); and the share of thos
 spent on the single most chosen action. The life itself is tallied per window: completions,
 right-action share, income, aroused share, learned moments, the mean dopamine of the
 learned moments and the share of them with a positive signal, and the action histogram.
-Receipts bind the chamber and every library source; `--verify --current` checks a receipt
+A competitor arm is read the same way from cleared copies: the greedy and the sampled
+policy run from stage zero on copies that start from a zero hidden state and carry it
+through the probe, and the answer at every stage from a zero state; in its row the learned
+moments are its parameter updates and the dopamine column the share of them with a
+positive TD error. Receipts bind the chamber, the competitor module and every library
+source; `--verify --current` checks a receipt
 against the shipped sources, `--report` prints its tables. `--learning` and `--brain`
 override the brain point and are recorded in the receipt.
 

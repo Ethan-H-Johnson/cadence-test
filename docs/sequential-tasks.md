@@ -97,5 +97,7 @@ a step that follows the brain's own uncertainty); and a passed gate for delayed 
 beyond five choices (issue 111). The
 [prerequisite-chain nursery](../benchmarks/chain/README.md) is the instrument for this
 page: the chain's state observed or hidden, pay at the end or in backward lessons, the
-founder brain against uniform random, a frozen newborn, the stationary memoryless ceiling
-and a tabular learner with the same information.
+founder brain against uniform random, a frozen newborn, the stationary memoryless ceiling,
+a tabular learner with the same information and two online recurrent actor-critics (an
+Elman cell and a gated recurrent unit) with the same information, the conventional
+competitors of [issue 184](https://github.com/muellerberndt/cadence/issues/184).
