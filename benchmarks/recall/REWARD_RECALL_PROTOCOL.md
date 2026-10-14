@@ -2,8 +2,35 @@
 
 Status: branch `trace-write-action-20261011`, row 3 of the sequence order (issue
 [#84](https://github.com/muellerberndt/cadence/issues/84)), the fourth mechanism on the plan.
-The instrument comes first and is declared here in outline; the mechanism follows it. Nothing
-is implemented or measured yet; no default changes.
+The instrument is `reward_recall.py` with `protocol-reward.json` and `test_reward_recall.py`;
+the mechanism runs at instrument level (below). No default changes.
+
+## The instrument as built
+
+`reward_recall.py` runs one continuing `Brain.live` life over the finite chamber's conditions
+(`finite_horizon_inputs`: clean-0, clean-1, clean-2, distractor-1, distractor-2,
+replacement-1, order-latest-1, interleaved uniformly), pays +1 or -1 at the query and delivers
+the pay with the next episode's first observation and `done`, so the library's own boundary
+rule resets the stream's trace. Controls: uniform random, the newborn (every arm's reading at
+zero episodes), the memoryless ceiling, and a tabular learner given the asked value at the
+query. Readings from frozen copies at declared probes: per condition greedy and sampled
+accuracy, the erased (trace cleared) and reset lesions, the write share per event kind,
+training tallies (success, income, aroused share, learned moments, dopamine sign), and the
+gates below. Receipts bind the instrument, the inputs module, the protocol and every library
+source.
+
+The `gated` arm composes a second motor slot of two choices, hold or write
+(`Brain.compose(..., slots=(2, 2))`). The library writes the trace after every moment; after a
+hold the instrument restores the trace, its last activation and its cold flag to their values
+before the moment, which equals skipping the founder's law. The choice is sampled and credited
+by the same actor and the same reward as the answer, through its eligibility over the hold
+span. The `fixed` arm is the founder. A library gene that skips the write inside the moment is
+the promotion step, taken only on a measured gain of this arm over the founder.
+
+Every recipe sets the body's need to 0.2 reward per moment and a youth of 300 moments, the
+other arousal genes at their founders. With the founder need of 0 the brain habituates to pay
+it cannot predict, stays calm on nine moments of ten and learns from few outcomes; with the
+need, the unmet share keeps it aroused and learning until its recent pay meets the need.
 
 ## Demonstrated limitation
 
