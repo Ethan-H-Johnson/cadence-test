@@ -1,9 +1,10 @@
 # Reward-based recall and the trace write as an action (2026-10-11)
 
-Status: branch `trace-write-action-20261011`, row 3 of the sequence order (issue
+Status: row 3 of the sequence order (issue
 [#84](https://github.com/muellerberndt/cadence/issues/84)), the fourth mechanism on the plan.
 The instrument is `reward_recall.py` with `protocol-reward.json` and `test_reward_recall.py`;
-the mechanism runs at instrument level (below). No default changes.
+the mechanism runs at instrument level (below) and is not part of the library. No default
+changes.
 
 ## The instrument as built
 
