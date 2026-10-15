@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!-- Gazebo LIMO (four-wheel differential, the Jetson Nano LIMO's default mode) + Cadence bridge.
+     gui:=false runs headless, which is faster under WSL. -->
+<launch>
+    <arg name="world" default="$(find limo_cadence_bridge)/worlds/arena.world"/>
+    <arg name="gui" default="true"/>
+    <arg name="rviz" default="false"/>
+    <arg name="port" default="5555"/>
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(arg world)"/>
+        <arg name="use_sim_time" value="true"/>
+        <arg name="gui" value="$(arg gui)"/>
+        <arg name="headless" value="false"/>
+    </include>
+
+    <param name="robot_description"
+           command="$(find xacro)/xacro '$(find limo_description)/urdf/limo_four_diff.xacro' robot_namespace:=/"/>
+    <node name="spawn_limo_model" pkg="gazebo_ros" type="spawn_model"
+          args="-x 0 -y 0 -z 0 -Y 0 -unpause -urdf -param robot_description -model limo/"/>
+    <rosparam file="$(find limo_gazebo_sim)/config/limo_four_diff_control.yaml" command="load"/>
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" args="limo_state_controller"/>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find limo_description)/rviz/model_display.rviz"/>
+
+    <node name="cadence_bridge" pkg="limo_cadence_bridge" type="bridge_node.py" output="screen">
+        <param name="port" value="$(arg port)"/>
+        <param name="scan_topic" value="/limo/scan"/>
+        <param name="odom_topic" value="/odom"/>
+        <param name="cmd_topic" value="/cmd_vel"/>
+        <param name="model_name" value="limo/"/>
+    </node>
+</launch>

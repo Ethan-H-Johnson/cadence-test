@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>limo_cadence_bridge</name>
+  <version>0.1.0</version>
+  <description>TCP bridge between a Cadence controller and the AgileX LIMO's ROS 2 topics (sim and rover).</description>
+  <maintainer email="ehayes4560@gmail.com">Ethan Johnson</maintainer>
+  <license>GPL-3.0-or-later</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

@@ -1,0 +1,14 @@
+{
+  "median_ms": 13.2455,
+  "p95_ms": 15.8186,
+  "max_ms": 39.2467,
+  "steps": 200,
+  "modules": [
+    48,
+    24
+  ],
+  "machine": "aarch64",
+  "processor": "aarch64",
+  "python": "3.12.3",
+  "numpy": "1.26.4"
+}

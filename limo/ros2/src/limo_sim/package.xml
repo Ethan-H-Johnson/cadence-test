@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>limo_sim</name>
+  <version>0.1.0</version>
+  <description>Gazebo Harmonic simulation of the AgileX LIMO Pro as configured on the rover (ROS 2 Jazzy).</description>
+  <maintainer email="ehayes4560@gmail.com">Ethan Johnson</maintainer>
+  <license>GPL-3.0-or-later</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>limo_description</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

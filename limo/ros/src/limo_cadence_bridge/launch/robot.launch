@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- On the real LIMO (Jetson Nano, ROS Melodic): start the base and lidar first with
+     `roslaunch limo_bringup limo_start.launch`, then this bridge. Keep a hand near the
+     power switch: the watchdog stops the base only if the bridge itself keeps running. -->
+<launch>
+    <arg name="port" default="5555"/>
+    <node name="cadence_bridge" pkg="limo_cadence_bridge" type="bridge_node.py" output="screen">
+        <param name="port" value="$(arg port)"/>
+        <param name="scan_topic" value="/scan"/>
+        <param name="odom_topic" value="/odom"/>
+        <param name="cmd_topic" value="/cmd_vel"/>
+        <param name="max_linear" value="0.3"/>
+        <param name="max_angular" value="1.2"/>
+    </node>
+</launch>

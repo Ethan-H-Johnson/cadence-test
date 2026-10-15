@@ -1,0 +1,6 @@
+ros/src/agilex/
+ros/build/
+ros/devel/
+runs/
+__pycache__/
+ros2/src/agilex/

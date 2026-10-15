@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<!-- AgileX LIMO Pro (Jetson Orin Nano) in four-wheel differential mode, for Gazebo Harmonic.
+
+     Geometry, inertia and meshes: AgileX limo_description (limo_ros2 @ dcc5a86, the commit the
+     rover's driver was built from). Simulation plugins are new: Gazebo Harmonic does not load
+     the Gazebo Classic plugins in AgileX's .gazebo files.
+
+     Matched to the rover:
+       /cmd_vel  geometry_msgs/Twist      (the limo_base driver's topic)
+       /odom     nav_msgs/Odometry 50 Hz  (driver control_rate 50; frames odom -> base_link)
+       /imu      sensor_msgs/Imu 100 Hz   (orientation included, as the driver publishes)
+       /scan     sensor_msgs/LaserScan    (EAI T-mini Pro: 360 deg, 10 Hz, 0.05-12 m)
+       wheel separation 0.172 m, wheel radius 0.045 m (limo_base kinematics), 1 m/s top speed
+-->
+<robot name="limo_pro" xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:include filename="$(find limo_description)/urdf/limo_xacro.xacro" />
+
+    <xacro:property name="M_PI" value="3.14159"/>
+    <xacro:property name="base_x_size" value="0.13" />
+    <xacro:property name="base_y_size" value="0.12" />
+    <xacro:property name="base_z_size" value="0.1" />
+    <xacro:property name="wheelbase" value="0.2"/>
+    <xacro:property name="track" value="0.13"/>
+    <xacro:property name="wheel_vertical_offset" value="-0.10" />
+    <xacro:property name="base_mass" value="2.1557"/>
+    <xacro:property name="wheel_length" value="0.045" />
+    <xacro:property name="wheel_radius" value="0.045" />
+    <!-- the driver's kinematic track (limo_driver.h track_), used for drive and odometry -->
+    <xacro:property name="drive_separation" value="0.172" />
+
+    <xacro:arg name="scan_hz" default="10"/>
+    <!-- The T-mini Pro scans 360 deg, but the robot's body blocks the rear and the controller
+         uses only the front 240 deg. Rendering just that arc (same 0.9 deg spacing as 400
+         samples per turn) keeps the GPU lidar cheap. scan_fov:=6.2832 scan_samples:=400
+         gives the full turn. -->
+    <xacro:arg name="scan_samples" default="267"/>
+    <xacro:arg name="scan_fov" default="4.18879"/>
+
+    <link name="base_footprint"/>
+    <joint name="base_joint" type="fixed">
+        <parent link="base_footprint"/>
+        <child link="base_link"/>
+        <origin xyz="0.0 0.0 0.15" rpy="0 0 0"/>
+    </joint>
+
+    <!-- AgileX's body shell mesh wraps the lidar: in Gazebo the lidar hits its inside at
+         +-35..50 deg and reads 0.05 m there permanently. By default the body is drawn as its
+         collision box, which sits behind the lidar. Whether the rover's own lidar is blocked
+         by its shell must be measured on the rover (README). body_mesh:=true restores it. -->
+    <xacro:arg name="body_mesh" default="false"/>
+    <link name="base_link">
+        <visual>
+            <xacro:if value="$(arg body_mesh)">
+                <origin xyz="0 0 -0.15" rpy="0 0 1.57" />
+                <geometry>
+                    <mesh filename="file://$(find limo_description)/meshes/limo_base.dae" scale="1 1 1"/>
+                </geometry>
+            </xacro:if>
+            <xacro:unless value="$(arg body_mesh)">
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <box size="${base_x_size} ${base_y_size} ${base_z_size}"/>
+                </geometry>
+            </xacro:unless>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <box size="${base_x_size} ${base_y_size} ${base_z_size}"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="inertial_link">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" />
+            <mass value="${base_mass}" />
+            <inertia ixx="0.24" ixy="0" ixz="0" iyy="0.96" iyz="0" izz="0.96" />
+        </inertial>
+    </link>
+    <joint name="inertial_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <parent link="base_link" />
+        <child link="inertial_link" />
+    </joint>
+
+    <xacro:limo_laser parent_prefix="base_link" frame_prefix="laser">
+        <origin xyz="0.103 0 -0.034" rpy="0 0 0"/>
+    </xacro:limo_laser>
+    <xacro:limo_depth_camera parent_prefix="base_link" frame_prefix="depth_camera">
+        <origin xyz="0.084 0 0.03" rpy="0 0 0"/>
+    </xacro:limo_depth_camera>
+    <xacro:limo_imu parent_prefix="base_link" frame_prefix="imu">
+        <origin xyz="0.0 0 -0.1" rpy="0 0 0"/>
+    </xacro:limo_imu>
+
+    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="front_left" reflect="1">
+        <origin xyz="${wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+    </xacro:limo_wheel>
+    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="front_right" reflect="-1">
+        <origin xyz="${wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="${M_PI} 0 0" />
+    </xacro:limo_wheel>
+    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="rear_left" reflect="1">
+        <origin xyz="${-wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+    </xacro:limo_wheel>
+    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="rear_right" reflect="-1">
+        <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="${M_PI} 0 0" />
+    </xacro:limo_wheel>
+
+    <!-- tyre friction as in AgileX's model -->
+    <xacro:macro name="tyre" params="name">
+        <gazebo reference="${name}_wheel_link">
+            <mu1>10</mu1>
+            <mu2>10</mu2>
+            <kp>10000000.0</kp>
+            <kd>1.0</kd>
+            <minDepth>0.01</minDepth>
+        </gazebo>
+    </xacro:macro>
+    <xacro:tyre name="front_left"/>
+    <xacro:tyre name="front_right"/>
+    <xacro:tyre name="rear_left"/>
+    <xacro:tyre name="rear_right"/>
+
+    <gazebo>
+        <!-- skid steer: both wheels of a side driven together, as the four-diff mode does -->
+        <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+            <left_joint>front_left_wheel</left_joint>
+            <left_joint>rear_left_wheel</left_joint>
+            <right_joint>front_right_wheel</right_joint>
+            <right_joint>rear_right_wheel</right_joint>
+            <wheel_separation>${drive_separation}</wheel_separation>
+            <wheel_radius>${wheel_radius}</wheel_radius>
+            <max_linear_velocity>1.0</max_linear_velocity>
+            <topic>cmd_vel</topic>
+            <odom_topic>odom</odom_topic>
+            <odom_publish_frequency>50</odom_publish_frequency>
+            <frame_id>odom</frame_id>
+            <child_frame_id>base_link</child_frame_id>
+            <tf_topic>tf_gz</tf_topic>
+        </plugin>
+        <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+            <topic>joint_states</topic>
+        </plugin>
+    </gazebo>
+
+    <gazebo reference="imu_link">
+        <sensor name="imu" type="imu">
+            <always_on>true</always_on>
+            <update_rate>100</update_rate>
+            <topic>imu</topic>
+            <gz_frame_id>imu_link</gz_frame_id>
+            <imu>
+                <angular_velocity>
+                    <x><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></x>
+                    <y><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></y>
+                    <z><noise type="gaussian"><mean>0</mean><stddev>2e-4</stddev></noise></z>
+                </angular_velocity>
+                <linear_acceleration>
+                    <x><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></x>
+                    <y><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></y>
+                    <z><noise type="gaussian"><mean>0</mean><stddev>1.7e-2</stddev></noise></z>
+                </linear_acceleration>
+            </imu>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="laser_link">
+        <!-- EAI T-mini Pro: 4000 samples/s (400 per turn at 10 Hz), 0.02-12 m, about +-2 cm. -->
+        <sensor name="lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <update_rate>$(arg scan_hz)</update_rate>
+            <topic>scan</topic>
+            <gz_frame_id>laser_link</gz_frame_id>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>$(arg scan_samples)</samples>
+                        <resolution>1</resolution>
+                        <min_angle>${-$(arg scan_fov)/2}</min_angle>
+                        <max_angle>${$(arg scan_fov)/2}</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.02</min>  <!-- T-mini Pro spec; the lidar sits ~4 cm behind the nose -->
+                    <max>12.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </lidar>
+        </sensor>
+    </gazebo>
+</robot>
