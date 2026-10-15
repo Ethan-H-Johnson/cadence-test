@@ -28,6 +28,11 @@ Arms, all on the same odour sequence per seed:
 - ``reset``    a newborn ``live`` brain at every rule change;
 - ``tabular``  epsilon-greedy tabular Q-learning, the matched-information conventional
   online learner, its two settings selected on the development seeds;
+- ``elman`` and ``gru``  online recurrent actor-critics with the same information
+  (``benchmarks/competitors.py``): an Elman cell or a gated recurrent unit read by a
+  softmax policy and a linear value, TD(lambda) eligibility traces with a gradient guard,
+  one update per trial and no replay; their settings are ``COMPETITOR_SETTINGS``, outside
+  the frozen plan, and a receipt records them;
 - ``random``   uniform random actions.
 
 Readings per rule: the share of optimal executed actions in the last 100 trials; the lag
@@ -55,6 +60,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -91,6 +97,64 @@ ARMS = (
     "random",
 )
 PROTOCOL = Path(__file__).with_name("protocol.json")
+COMPETITORS = ("elman", "gru")
+COMPETITORS_PATH = Path(__file__).resolve().parents[1] / "competitors.py"
+# The competitor arms' settings, declared here outside the frozen protocol and recorded
+# in every receipt that runs these arms. No bootstrapping across trials (gamma 0, lam 0: an
+# outcome is complete at the next trial, as the tabular arm's update assumes); hidden
+# width, temperature and guard from the key-door chamber's recurrent arm; the actor step
+# selected on development seeds 0 to 5 at exposures 300 and more over 0.02, 0.05, 0.1 and
+# 0.2 (the value step twice the actor step) by the tabular arm's rule, ties unresolved by
+# the median reversal lag going to the higher mean optimal share at the end of rule B
+# (2026-10-14, 192 lives; the README records the sweep).
+COMPETITOR_SETTINGS: dict[str, dict[str, Any]] = {
+    "elman": {
+        "hidden": 16,
+        "alpha": 0.05,
+        "alpha_value": 0.1,
+        "gamma": 0.0,
+        "lam": 0.0,
+        "temperature": 1.0,
+        "clip": 5.0,
+    },
+    "gru": {
+        "hidden": 16,
+        "alpha": 0.05,
+        "alpha_value": 0.1,
+        "gamma": 0.0,
+        "lam": 0.0,
+        "temperature": 1.0,
+        "clip": 5.0,
+    },
+}
+COMPETITOR_COUNTS = (
+    "updates",
+    "forward_passes",
+    "probe_forward_passes",
+    "clipped",
+    "value_clipped",
+    "delta_clipped",
+    "multiply_accumulates",
+    "parameters",
+    "hidden",
+)
+
+
+def _load_competitors() -> Any:
+    spec = importlib.util.spec_from_file_location("competitors", COMPETITORS_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+competitors = _load_competitors()
+
+
+def competitor_parameters(cell: str, hidden: int) -> int:
+    """The declared size of a competitor: its cell's weights, the policy's and the value's."""
+    gates = 3 if cell == "gru" else 1
+    return gates * hidden * (ODOURS + hidden + 1) + 2 * (hidden + 1) + (hidden + 1)
 
 
 def reward_of(odour: int, action: int, sugar: int, payoff: str = "sugar") -> float:
@@ -338,8 +402,56 @@ class Random:
         return [-1] * ODOURS, [0.5] * ODOURS
 
 
+class Competitor:
+    """An online recurrent actor-critic (``competitors.ActorCritic``) living the nursery with
+    the brain's information: the odour, its own action and the reward, one update per
+    trial. ``last`` holds the policy's approach probability as the behaviour's (it samples
+    its policy) and the executed action's probability; ``work`` is the ledger with the
+    learner's own counts. ``probe`` reads a copy from a cleared state."""
+
+    def __init__(self, arm: str, seed: int, settings: dict[str, Any]) -> None:
+        self.arm = arm
+        self.learner = competitors.ActorCritic(ODOURS, 2, seed, cell=arm, **settings)
+        self.frozen = False
+        self.work = fresh_work()
+        self.probe_passes = 0
+        self.last = (0.5, 0.5, 0.5)
+
+    def act(self, odour: int, reward: float | None) -> tuple[int, bool]:
+        learner = self.learner
+        learner.frozen = self.frozen
+        action = learner.act(np.eye(ODOURS)[odour], reward)
+        p = float(learner.probs[APPROACH])
+        if self.frozen:  # the greedy choice, executed with certainty
+            self.work["routine"] += 1
+            self.last = (float(action == APPROACH), p, 1.0)
+            return action, False
+        self.work["aroused"] += 1
+        self.last = (p, p, p if action == APPROACH else 1.0 - p)
+        return action, True
+
+    def probe(self) -> tuple[list[int], list[float]]:
+        twin = self.learner.clone()
+        choices, approach = [], []
+        for odour in range(ODOURS):
+            probs = twin.policy(np.eye(ODOURS)[odour])
+            choices.append(int(np.argmax(probs)))
+            approach.append(float(probs[APPROACH]))
+        self.work["probes"] += 1
+        self.probe_passes += ODOURS
+        return choices, approach
+
+    def describe(self) -> dict[str, Any]:
+        return self.learner.describe()
+
+    def ledger(self) -> dict[str, int]:
+        return {**self.work, **self.learner.ledger(), "probe_forward_passes": self.probe_passes}
+
+
 def make_life(arm: str, protocol: dict[str, Any], seed: int, genes: dict[str, Any]) -> Any:
     point = protocol["operating_point"]
+    if arm in COMPETITORS:
+        return Competitor(arm, seed, COMPETITOR_SETTINGS[arm])
     if arm in ("live", "frozen", "replay", "reset"):
         return BrainLife(make_brain(point, seed, genes), use_live=True)
     if arm == "memory-only":  # the actor's synapses and biases do not learn
@@ -397,7 +509,7 @@ def run_life(
         return action, aroused
 
     def ledger() -> dict[str, Any]:
-        work = dict(life.ledger()) if isinstance(life, BrainLife) else fresh_work()
+        work = dict(life.ledger()) if hasattr(life, "ledger") else fresh_work()
         for earlier in retired:
             for key, value in earlier.items():
                 work[key] += value
@@ -412,6 +524,8 @@ def run_life(
         return work
 
     result: dict[str, Any] = {"arm": arm, "seed": seed, "exposure": exposure}
+    if isinstance(life, Competitor):
+        result["learner"] = life.describe()
     odour = int(odours.integers(ODOURS))
     try:
         action, aroused = act(odour, None)
@@ -622,7 +736,10 @@ def gates(rows: list[dict[str, Any]], protocol: dict[str, Any]) -> dict[str, Any
 
 def summarize(rows: list[dict[str, Any]]) -> str:
     lines = []
-    keys = sorted({(r["arm"], r["exposure"]) for r in rows}, key=lambda k: (ARMS.index(k[0]), k[1]))
+    order = ARMS + COMPETITORS
+    keys = sorted(
+        {(r["arm"], r["exposure"]) for r in rows}, key=lambda k: (order.index(k[0]), k[1])
+    )
     for arm, exposure in keys:
         group = [r for r in rows if r["arm"] == arm and r["exposure"] == exposure]
         good = [r for r in group if "error" not in r]
@@ -653,7 +770,7 @@ def markdown(report: dict[str, Any]) -> str:
     """The receipt's tables as Markdown, for the README: every number is read from the rows."""
     rows = report["rows"]
     exposures = sorted({r["exposure"] for r in rows})
-    arms = [a for a in ARMS if any(r["arm"] == a for r in rows)]
+    arms = [a for a in ARMS + COMPETITORS if any(r["arm"] == a for r in rows)]
     # the first freeze's receipt predates the coverage and witness readings, and the
     # second freeze's the behaviour readings and the complete work ledger
     completed = [r for r in rows if "error" not in r]
@@ -791,6 +908,25 @@ def markdown(report: dict[str, Any]) -> str:
         )
     if worked:
         out.append("")
+    if any(r["arm"] in COMPETITORS for r in completed):
+        out += [
+            "### Competitor arms at the longest exposure: size and work, medians over lives",
+            "",
+            "| Arm | hidden | parameters | updates | multiply-accumulates | guard activations "
+            "(policy, value, TD error) | ms per trial (median, p90) |",
+            "| --- |" + " --- |" * 6,
+        ]
+        for arm in COMPETITORS:
+            works = [r["work"] for r in lives(arm, exposures[-1]) if "work" in r]
+            if not works:
+                continue
+            out.append(
+                f"| `{arm}` | {med(works, 'hidden')} | {med(works, 'parameters')} | "
+                f"{med(works, 'updates')} | {med(works, 'multiply_accumulates')} | "
+                f"{med(works, 'clipped')}, {med(works, 'value_clipped')}, "
+                f"{med(works, 'delta_clipped')} | {ms(works, 'aroused')} |"
+            )
+        out.append("")
     out += ["### The live arm: witnesses, arousal and work, medians over lives", "", head]
     out.append("| --- |" + " --- |" * 7)
     for exposure in exposures:
@@ -825,6 +961,7 @@ def sources() -> list[tuple[str, Path]]:
     package = Path(cd.__file__).resolve().parent
     return [
         ("odour_nursery.py", Path(__file__).resolve()),
+        ("competitors.py", COMPETITORS_PATH),
         *(
             ("cadence/" + path.relative_to(package).as_posix(), path)
             for path in sorted(package.rglob("*.py"))
@@ -871,7 +1008,7 @@ def validate_readings(body: dict[str, Any], kind: str = SCHEMA) -> str | None:
         values = body[key]
         if not isinstance(values, list) or not values or len(set(values)) != len(values):
             return "the plan must contain nonempty, unique arms, exposures and seeds"
-    if any(arm not in ARMS for arm in body["arms"]):
+    if any(arm not in ARMS + COMPETITORS for arm in body["arms"]):
         return "the plan contains an unknown arm"
     for key, minimum in (("exposures", 1), ("seeds", 0)):
         if any(type(v) is not int or v < minimum for v in body[key]):
@@ -901,6 +1038,12 @@ def validate_readings(body: dict[str, Any], kind: str = SCHEMA) -> str | None:
                     len(times) != 3 or any(type(v) is not float or v < 0 for v in times)
                 ):
                     return "latencies must be three nonnegative milliseconds"
+            if row["arm"] in COMPETITORS:
+                counts = {key: work.get(key) for key in COMPETITOR_COUNTS}
+                if any(type(v) is not int or v < 0 for v in counts.values()):
+                    return "a competitor's counters must be nonnegative integers"
+                if work["parameters"] != competitor_parameters(row["arm"], work["hidden"]):
+                    return "a competitor's parameter count differs from its declared size"
         if "error" in row:
             if not isinstance(row["error"], str) or not row["error"]:
                 return "a crashed life must record its error"
@@ -1037,7 +1180,7 @@ def verify(path: Path, *, current: bool = False, protocol: Path = PROTOCOL) -> t
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--protocol", type=Path, default=PROTOCOL)
-    parser.add_argument("--arms", nargs="*", default=list(ARMS), choices=ARMS)
+    parser.add_argument("--arms", nargs="*", default=list(ARMS), choices=ARMS + COMPETITORS)
     parser.add_argument(
         "--seeds",
         nargs="*",
@@ -1118,6 +1261,7 @@ def main(argv: list[str] | None = None) -> int:
         "frozen_protocol": not overridden and frozen == PROTOCOL.read_bytes(),
         "protocol": protocol,
         "genes_override": genes,
+        "competitors": {arm: COMPETITOR_SETTINGS[arm] for arm in args.arms if arm in COMPETITORS},
         "arms": list(args.arms),
         "exposures": list(exposures),
         "seeds": seeds,
