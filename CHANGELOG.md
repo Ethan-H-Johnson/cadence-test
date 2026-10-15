@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The episodic and sequential-task guides state the founder dependence of the continuation
+  after teaching: the readings in which `step` eroded a taught chain where `live` kept it
+  belong to the five fresh founders of the chain instrument, and on other founders both paths
+  kept it or the drift came through `live`; the remedy is to read the greedy policy stage by
+  stage beside whole-chain success after the caregiver leaves, and continue through `live` or
+  lower the actor step. No runtime change.
 - Competitor arms for the comparison thread of
   [issue 183](https://github.com/muellerberndt/cadence/issues/183) and
   [issue 184](https://github.com/muellerberndt/cadence/issues/184):
