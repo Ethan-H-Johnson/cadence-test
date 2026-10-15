@@ -21,6 +21,17 @@
   them on request (`--arms elman gru`) with settings declared in the chamber, outside its
   frozen plan, and records them in the receipt. The existing arms, receipts, gates and
   tests are unchanged.
+- Lessons only where the answer differs, opt-in: `LearnerConfig(surprise=True)`
+  (`Brain.compose(..., learning_surprise=True)`) teaches only the rows whose free answer
+  differs from the label; agreeing rows get no nudged phase and no update, and a batch the
+  net answers as shown ends after the free phase. The composed brain judges that difference
+  from the settle its act reads (`step(teacher=...)` passes it as `answer`), a learner on its
+  own from its free phase. The teaching report counts
+  `accepted_presentations` and `agreed_presentations`, `LearnedState.taught` marks the rows,
+  and an episodic memory that records demonstrations records the taught rows only. The
+  composed founder keeps every-row lessons; the
+  [learning guide](docs/learning.md#lessons-only-where-the-answer-differs) says when to
+  select the rule.
 
 ## 0.83.0 — 2026-10-13
 

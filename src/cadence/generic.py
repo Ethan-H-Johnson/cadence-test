@@ -1542,8 +1542,12 @@ class Brain:
             from .learning import LearningPhaseError
 
             drive = self.stimulus(x)
+            answer = None
+            if self.learner.config.surprise:
+                # the brain's own answer: the settle its act reads, warm from the stream
+                answer = self._choices(self._qualified(drive, self._activity(), operation="act"))
             try:
-                _, teaching = self.learner.step(drive, labels)
+                lesson, teaching = self.learner.step(drive, labels, answer=answer)
             except LearningPhaseError as error:
                 self.last_learning.update(
                     {"demonstration_" + name: value for name, value in error.report.items()}
@@ -1554,12 +1558,15 @@ class Brain:
                 {"demonstration_" + name: value for name, value in teaching.items()}
             )
             # A demonstration teaches the slow policy, not an invented reward value. An
-            # episodic memory also records the shown action for the situation it was shown in.
-            if self.memory_choice and self.memory_demonstrations and self.hippocampus is not None:
+            # episodic memory also records the shown action for the situation it was shown in;
+            # under the learner's surprise rule, for the rows the lesson taught.
+            shown = np.ones(batch, bool) if lesson.taught is None else lesson.taught
+            if (self.memory_choice and self.memory_demonstrations
+                    and self.hippocampus is not None and shown.any()):
                 value = np.full(batch, self.memory_demonstrations)
                 self._remember(
                     x, self._episode_key(x) if self.context_memory is not None else None,
-                    labels, value, np.ones(batch, bool),
+                    labels, value, shown,
                 )
             self._prepared = None
             self.basal_ganglia._drive = None

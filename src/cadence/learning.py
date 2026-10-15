@@ -93,6 +93,9 @@ class LearnerConfig:
     scale_cap: float = SCALE_CAP
     qualified: bool = False  # opt-in: require free and teaching equation residuals
     damping: int = 3  # candidate numerical strategy: at most this many dt halvings
+    # opt-in: a lesson teaches only the rows whose free answer differs from the label; a row the
+    # net already answers as shown gets no nudged phase and no update: the lesson is the surprise
+    surprise: bool = False
 
     def __post_init__(self) -> None:
         # Config fields have host scalar semantics, including before a save/load.
@@ -190,9 +193,44 @@ class LearnerConfig:
 
 @dataclass(frozen=True)
 class LearnedState:
-    free: BrainState
-    nudged: BrainState
+    free: BrainState | None
+    nudged: BrainState | None
     opposite: BrainState | None = None  # the -beta phase, when centered
+    # per offered row, True where the nudged phases ran, under ``surprise`` only; the three
+    # states then hold those rows. A batch without a disagreeing row has ``free`` as ``nudged``
+    # when the free phase judged it, and no state at all when the caller's answer did.
+    taught: np.ndarray | None = None
+
+
+_PHASE_KEYS = (
+    "steps", "residual", "residual_checks", "damping_halvings", "stagnation_checks",
+    "row_sweeps", "row_residual_checks",
+)
+
+
+def _rows(state: BrainState, rows: np.ndarray) -> BrainState:
+    """The host copy of a batched state restricted to the rows of a boolean mask."""
+    change = state.activity_change
+    return BrainState(
+        np.asarray(state.v)[rows], np.asarray(state.activation)[rows],
+        np.asarray(state.adaptation)[rows], state.steps,
+        activity_change=None if change is None else np.asarray(change)[rows],
+    )
+
+
+def _restrict(state: BrainState, taught: np.ndarray | None) -> BrainState:
+    """``state`` restricted to the taught rows, or itself when every row is taught."""
+    return state if taught is None or bool(taught.all()) else _rows(state, taught)
+
+
+def _taught_report(taught: np.ndarray | None, batch: int) -> dict[str, float]:
+    """How many rows were offered, how many the lesson taught, and how many it agreed with."""
+    count = float(batch if taught is None else int(taught.sum()))
+    return {
+        "attempted_presentations": float(batch),
+        "accepted_presentations": count,
+        "agreed_presentations": float(batch) - count,
+    }
 
 
 def _phase_report(
@@ -877,6 +915,8 @@ class Learner:
         labels: np.ndarray,
         warm: BrainState | None = None,
         weight: np.ndarray | None = None,
+        *,
+        answer: np.ndarray | None = None,
     ) -> tuple[LearnedState, dict[str, float]]:
         """One free phase, the nudged phase(s), one update; returns the states and step sizes.
 
@@ -884,7 +924,18 @@ class Learner:
         row's label is pulled. With actions as labels and advantages as weights
         this is the policy-gradient step, and the goal still enters only through
         the nudge.
+
+        With ``surprise`` set, the net's answer for every row is compared with its label;
+        only the rows that disagree get the nudged phases and the update, read over those
+        rows alone, and ``LearnedState.taught`` marks them. ``answer`` is that answer as the
+        caller read it before the lesson, ``(batch,)`` or ``(batch, slots)`` like the labels
+        (the composed brain passes the settle its act reads); the agreeing rows are then
+        dropped before the free phase, and a batch without a disagreeing row runs no phase.
+        Without ``answer`` the free phase's own answer judges, after it ran on every row. In
+        both cases ``accepted_presentations`` counts the rows taught and
+        ``agreed_presentations`` the rest.
         """
+        labels = self._labels(labels)
         target = self.targets(labels)
         drive = np.asarray(drive, dtype=float)
         if drive.ndim == 1:
@@ -892,12 +943,26 @@ class Learner:
         if drive.ndim != 2 or drive.shape[0] != target.shape[0]:
             raise ValueError("drive and labels must have the same batch size")
         cfg = self.config
+        batch = len(labels)
+        judged = None
+        if cfg.surprise and answer is not None:
+            judged = self._differs(np.asarray(answer), labels)
+            if not judged.any():
+                return self._untaught(judged)
+            drive, target, weight = self._lesson(judged, drive, target, weight)
+            warm = None if warm is None else _restrict(warm, judged)
         if cfg.qualified:
             phases: dict[str, Equilibrium] = {}
             phases["free"] = self._qualified_phase(drive, warm, cfg.free_steps)
             if not np.all(phases["free"].qualified):
                 raise LearningPhaseError("free", phases)
             free = replace(phases["free"].state, steps=phases["free"].steps)
+            taught = judged if judged is not None else self._taught(free, labels)
+            if taught is not None and not taught.any():
+                return self._agreed(free, phases, taught)
+            if judged is None:
+                drive, target, weight = self._lesson(taught, drive, target, weight)
+                free = _restrict(free, taught)
             for name, sign in (("nudged", 1.0), ("opposite", -1.0)):
                 if name == "opposite" and not cfg.centered:
                     break
@@ -912,27 +977,42 @@ class Learner:
                         if "opposite" in phases else None)
             report = self.update(free, nudged, opposite)
             report.update(_phase_report(phases, accepted=True, qualified=True))
-            return LearnedState(free, nudged, opposite), report
+            report.update(_taught_report(taught, batch))
+            return LearnedState(free, nudged, opposite, taught), report
         free = self.free(drive, warm)
-        nudged = self.nudged(drive, free, target, weight=weight)
-        opposite = (
-            self.nudged(drive, free, target, sign=-1.0, weight=weight)
-            if self.config.centered
-            else None
-        )
         # Finite phases retain the original update law. Their post-solve
         # diagnostics count additional work and do not certify the lesson.
         phases = {
             "free": Equilibrium(free, self.brain.residual(drive, free), free.steps,
                                 cfg.tolerance if cfg.tolerance is not None else 0.0,
                                 residual_checks=1),
-            "nudged": Equilibrium(
-                nudged, self.brain.residual(drive, nudged,
-                    nudge=self.nudge_for(target, cfg.beta, weight)),
-                nudged.steps, cfg.tolerance if cfg.tolerance is not None else 0.0,
-                residual_checks=1,
-            ),
         }
+        # Finite teaching updates from whatever state the budget reached. A free
+        # phase that used its entire budget usually did not reach the movement
+        # stop; the lesson was then learned from a state that may not have
+        # settled. Count it and say so instead of hiding it (issue 127).
+        exhausted = cfg.tolerance is not None and free.steps >= cfg.free_steps > 0
+        taught = judged if judged is not None else self._taught(free, labels)
+        if taught is not None and not taught.any():
+            state, report = self._agreed(free, phases, taught)
+            report["free_budget_exhausted"] = float(exhausted)
+            self._warn_exhausted(exhausted)
+            return state, report
+        if judged is None:
+            drive, target, weight = self._lesson(taught, drive, target, weight)
+            free = _restrict(free, taught)
+        nudged = self.nudged(drive, free, target, weight=weight)
+        opposite = (
+            self.nudged(drive, free, target, sign=-1.0, weight=weight)
+            if self.config.centered
+            else None
+        )
+        phases["nudged"] = Equilibrium(
+            nudged, self.brain.residual(drive, nudged,
+                nudge=self.nudge_for(target, cfg.beta, weight)),
+            nudged.steps, cfg.tolerance if cfg.tolerance is not None else 0.0,
+            residual_checks=1,
+        )
         if opposite is not None:
             phases["opposite"] = Equilibrium(
                 opposite, self.brain.residual(drive, opposite,
@@ -942,12 +1022,73 @@ class Learner:
             )
         report = self.update(free, nudged, opposite)
         report.update(_phase_report(phases, accepted=True, qualified=False))
-        # Finite teaching updates from whatever state the budget reached. A free
-        # phase that used its entire budget usually did not reach the movement
-        # stop; the lesson was then learned from a state that may not have
-        # settled. Count it and say so instead of hiding it (issue 127).
-        exhausted = cfg.tolerance is not None and free.steps >= cfg.free_steps > 0
+        report.update(_taught_report(taught, batch))
         report["free_budget_exhausted"] = float(exhausted)
+        self._warn_exhausted(exhausted)
+        return LearnedState(free, nudged, opposite, taught), report
+
+    def _differs(self, answer: np.ndarray, labels: np.ndarray) -> np.ndarray:
+        """True per row where an answer differs from its label in any slot."""
+        if answer.shape != labels.shape:
+            raise ValueError("answer must have the labels' shape")
+        differs = np.asarray(answer != labels, dtype=bool)
+        return np.asarray(differs.any(axis=1)) if differs.ndim == 2 else differs
+
+    def _taught(self, free: BrainState, labels: np.ndarray) -> np.ndarray | None:
+        """Under ``surprise``, True per row where the free answer differs from its label."""
+        if not self.config.surprise:
+            return None
+        return self._differs(self._answer(free), labels)
+
+    def _lesson(
+        self,
+        taught: np.ndarray | None,
+        drive: np.ndarray,
+        target: np.ndarray,
+        weight: np.ndarray | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        """The rows the phases run on: every row, or the disagreeing ones."""
+        if taught is None or bool(taught.all()):
+            return drive, target, weight
+        return drive[taught], target[taught], None if weight is None else np.asarray(weight)[taught]
+
+    def _untaught(self, taught: np.ndarray) -> tuple[LearnedState, dict[str, float]]:
+        """The lesson of a batch whose caller-read answer matches every label: no phase runs,
+        nothing changes; every phase counts zero work."""
+        cfg = self.config
+        report = {
+            "accepted": 1.0,
+            "qualified": float(cfg.qualified),
+            "qualification_required": float(cfg.qualified),
+            "attempted_presentations": float(len(taught)),
+        }
+        names = ("free", "nudged", "opposite")[: 3 if cfg.centered else 2]
+        for name in names:
+            for key in _PHASE_KEYS:
+                report[f"{name}_{key}"] = 0.0
+        for key in ("steps", "residual_checks", "stagnation_checks", "row_sweeps",
+                    "row_residual_checks"):
+            report[f"total_{key}"] = 0.0
+        report.update(_taught_report(taught, len(taught)))
+        if not cfg.qualified:
+            report["free_budget_exhausted"] = 0.0
+        return LearnedState(None, None, None, taught), report
+
+    def _agreed(
+        self, free: BrainState, phases: Mapping[str, Equilibrium], taught: np.ndarray
+    ) -> tuple[LearnedState, dict[str, float]]:
+        """The lesson of a batch whose free answer matches every label: the free phase alone,
+        no nudged phase, no update; the phases that did not run count zero work."""
+        cfg = self.config
+        report = _phase_report(phases, accepted=True, qualified=cfg.qualified)
+        for name in ("nudged", "opposite")[: 2 if cfg.centered else 1]:
+            for key in _PHASE_KEYS:
+                report[f"{name}_{key}"] = 0.0
+        report.update(_taught_report(taught, len(taught)))
+        return LearnedState(free, free, None, taught), report
+
+    @staticmethod
+    def _warn_exhausted(exhausted: bool) -> None:
         if exhausted:
             warnings.warn(
                 "finite teaching free phase used its entire free_steps budget; the "
@@ -957,9 +1098,8 @@ class Learner:
                 "such lessons; "
                 "see docs/learning.md#finite-free-phases-that-run-out-of-budget.",
                 RuntimeWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
-        return LearnedState(free, nudged, opposite), report
 
     # -- calibration
 
@@ -1120,8 +1260,11 @@ class Learner:
 
     def predict(self, drive: np.ndarray) -> np.ndarray:
         """Most active output neuron after the free phase; ``(batch, slots)`` when slotted."""
-        free = self.free(drive)
-        out = free.activation[:, self.output_index]
+        return self._answer(self.free(drive))
+
+    def _answer(self, state: BrainState) -> np.ndarray:
+        """Most active output neuron of a settled state; ``(batch, slots)`` when slotted."""
+        out = np.asarray(state.activation)[:, self.output_index]
         if self.slot_count > 1 and self.slot_size == 0:  # unequal slots: one argmax each
             choice = [
                 np.argmax(out[:, o : o + k], axis=1)

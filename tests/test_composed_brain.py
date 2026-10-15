@@ -130,3 +130,41 @@ def test_empty_imagined_branch_still_validates_solver_controls(controls):
 def test_invalid_composition_options_are_refused(options):
     with pytest.raises(ValueError):
         Brain.compose(2, 2, modules=(4,), **options)
+
+
+def test_learning_surprise_gene_teaches_only_the_rows_the_brain_answers_differently() -> None:
+    brain = Brain.compose(4, 2, modules=(8,), seed=0, learning_surprise=True)
+    assert brain.learner.config.surprise is True
+    x = np.random.default_rng(0).random((3, 4))
+    labels = brain.predict(x)
+    brain.step(x, teacher=labels)
+    report = brain.last_learning
+    assert report["demonstrations"] == 3.0
+    assert report["demonstration_accepted_presentations"] == 0.0
+    assert report["demonstration_agreed_presentations"] == 3.0
+    brain.reset()
+    brain.step(x, teacher=1 - labels)
+    report = brain.last_learning
+    assert report["demonstration_accepted_presentations"] == 3.0
+    assert report["demonstration_agreed_presentations"] == 0.0
+    assert Brain.compose(4, 2, modules=(8,), seed=0).learner.config.surprise is False
+
+
+def test_learning_surprise_judges_from_the_brains_own_answer(monkeypatch) -> None:
+    brain = Brain.compose(4, 2, modules=(8,), seed=0, learning_surprise=True)
+    x = np.random.default_rng(1).random((3, 4))
+    labels = np.array([0, 1, 0])
+    read = []
+
+    def choices(state):  # the answer the act would read, here fixed by the test
+        read.append(len(state.activation))
+        return np.array([0, 1, 1])
+
+    monkeypatch.setattr(brain, "_choices", choices)
+    brain.step(x, teacher=labels)
+    assert read == [3]  # the judgment settle; the act's choice is the basal ganglia's
+    assert brain.last_learning["demonstration_accepted_presentations"] == 1.0
+    assert brain.last_learning["demonstration_agreed_presentations"] == 2.0
+    assert brain.last_learning["demonstration_free_row_sweeps"] == (
+        brain.last_learning["demonstration_free_steps"]
+    )

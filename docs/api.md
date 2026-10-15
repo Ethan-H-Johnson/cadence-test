@@ -1153,7 +1153,7 @@ founder genes for a small share of moments; the
 
 ## Learning (`cadence.learning`)
 
-- `LearnerConfig(beta=0.1, eta=0.2, eta_bias=None, centered=True, free_steps=100, nudged_steps=50, tolerance=1e-4, nudge="cross_entropy", temperature=0.2, normalize=0.0, normalize_floor=1e-3, momentum=0.0, decay=0.0, scale_cap=8.0, qualified=False, damping=3)`:
+- `LearnerConfig(beta=0.1, eta=0.2, eta_bias=None, centered=True, free_steps=100, nudged_steps=50, tolerance=1e-4, nudge="cross_entropy", temperature=0.2, normalize=0.0, normalize_floor=1e-3, momentum=0.0, decay=0.0, scale_cap=8.0, qualified=False, damping=3, surprise=False)`:
   `eta_bias` left as `None` derives `eta / 10` at construction; an explicit
   value is kept, and construction warns when a positive `eta` is below
   `eta_bias`, where the bias step dominates (issue 126).
@@ -1202,7 +1202,7 @@ founder genes for a small share of moments; the
     `update(free, nudged, opposite=None) -> {"scale_step", "bias_step"}`,
     `apply(delta_scale, delta_bias) -> {"scale_step", "bias_step"}` (a computed step through
     the masks, synapse rates, tying, decay and clipping),
-    `step(drive, labels, warm=None, weight=None) -> (LearnedState, report)`;
+    `step(drive, labels, warm=None, weight=None, answer=None) -> (LearnedState, report)`;
     labels are integer indices within each output group: `(batch,)` for one group,
     `(batch, slots)` for several; `accuracy` averages all row/slot choices;
     Reports include attempted/accepted row presentations, all required phases' steps,
@@ -1281,7 +1281,8 @@ founder genes for a small share of moments; the
   a window of one-hot tokens through one embedding table shared across positions, then a
   dense hidden layer and the outputs, feedback synapses tied in pairs; populations `input`,
   `embedding`, `hidden`, `output`.
-- `LearnedState(free, nudged, opposite=None)`.
+- `LearnedState(free, nudged, opposite=None, taught=None)`; under `surprise`, `taught` marks the
+  rows the lesson taught, and a lesson without such a row holds no states.
 
 ## The agent and the valence (`cadence.plasticity`)
 

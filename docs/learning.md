@@ -300,6 +300,31 @@ and work. Compare it with the declared no-rehearsal control. Use unambiguous
 cue/target pairs: conflicting labels on an identical independent observation
 cannot certify a deterministic fresh-state mapping without more context.
 
+### Lessons only where the answer differs
+
+`LearnerConfig(surprise=True)` (`Brain.compose(..., learning_surprise=True)`) makes a lesson
+teach only the rows whose answer differs from the label. A learner used on its own reads its
+answer from the free phase: it runs on every row, the rows that agree with the label get no
+nudged phase and no update, and the contrast of the others is averaged over them alone. A
+caller that has the net's answer passes it (`step(drive, labels, answer=...)`): the agreeing
+rows are dropped before the free phase, so the lesson settles the differing rows only, and a
+batch without a differing row runs no phase. The composed brain does that through
+`step(teacher=...)`: its answer is the settle its act reads, warm from the stream, so the
+judgment is the one its behaviour shows (a free phase from rest can agree with a label the
+warm act gets wrong, and such a row would then never be taught). The report counts the rows:
+`attempted_presentations` is the batch, `accepted_presentations` the rows taught and
+`agreed_presentations` the rest; `LearnedState.taught` marks the taught rows, and the states it
+holds are those rows' phases. Through `step(teacher=...)` the same counts arrive under
+`demonstration_*`, and an episodic memory that records demonstrations records the taught rows
+only.
+
+The rule is the teaching form of surprise: a demonstration of what the net would have done
+carries no lesson. Select it where a readout saturates under repeated lessons on cases it
+answers, where sequences are shown row by row for many passes, and where a lesson must read
+the complete stimulus of its moment: the free phase runs on every row of the batch, so a
+row's working-trace context is present whether or not the row is taught. The composed founder
+keeps `False`; select the rule on development data with the every-row lesson as the control.
+
 ## Feedback and the reach of a nudge
 
 A contrast is zero if neither the presynaptic nor the postsynaptic neuron changes under
@@ -468,6 +493,7 @@ times the synapse step (issue 126).
 | `eta_bias` | `LearnerConfig` | bias step | unset derives `eta / 10` (0.02 at the standalone `eta`); explicit values are kept, and a bias rate above `eta` warns |
 | `temperature` | `LearnerConfig` | softmax temperature of the cross-entropy nudge; also the policy temperature when sampling actions | default 0.2; select any alternative on development data |
 | `centered` | `LearnerConfig` | contrast `+beta` against `−beta` (two nudged phases) rather than against the free state | `True` |
+| `surprise` | `LearnerConfig` | teach only the rows whose free answer differs from the label; agreeing rows get no nudged phase and no update ([lessons only where the answer differs](#lessons-only-where-the-answer-differs)) | `False` |
 | `nudge` | `LearnerConfig` | `"cross_entropy"` or `"quadratic"` (`beta · (target − s)`) | cross-entropy for classes |
 | `momentum` | `LearnerConfig` | each efficacy steps on a bias-corrected running average of its contrast | 0 (off); tune with the learning rate |
 | `decay` | `LearnerConfig` | every update shrinks each plastic efficacy and bias by this fraction | 0 by default; decay also forgets useful weights |

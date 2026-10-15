@@ -333,3 +333,101 @@ def test_contrast_on_the_device_matches_the_host(backend: str) -> None:
     tolerance = 1e-12 if backend == "torch" else 1e-5
     assert np.abs(on_device - on_host).max() < tolerance
     assert host.contrast_on_device(state.nudged, state.opposite) is None  # type: ignore[arg-type]
+
+
+def _learner(surprise: bool, **config: object) -> cd.Learner:
+    connectome = cd.layered(8, 16, 2, density=0.6, seed=1)
+    settings = dict(eta=2.0, surprise=surprise, tolerance=1e-9, free_steps=4000, nudged_steps=4000)
+    settings.update(config)
+    return cd.Learner(
+        cd.NeuralGraph(connectome, cd.learning_neuron_model()),
+        connectome.populations["output"],
+        cd.LearnerConfig(**settings),
+    )
+
+
+def _blob_drive(learner: cd.Learner) -> np.ndarray:
+    x, _ = two_blobs(8)
+    return learner.brain.stimulus_levels(np.pad(x, ((0, 0), (0, learner.brain.connectome.n - 8))))
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+def test_surprise_teaches_only_the_rows_whose_answer_differs(qualified: bool) -> None:
+    settings = dict(qualified=True, tolerance=1e-6) if qualified else {}
+    selective, every = _learner(True, **settings), _learner(False, **settings)
+    drive = _blob_drive(every)
+    labels = every.predict(drive)
+    labels[::2] = 1 - labels[::2]  # eight rows disagree with the net's answer, eight agree
+    taught = np.zeros(16, bool)
+    taught[::2] = True
+    state, report = selective.step(drive, labels)
+    assert state.taught is not None and state.taught.tolist() == taught.tolist()
+    assert len(state.free.activation) == 8 and len(state.nudged.activation) == 8
+    assert report["attempted_presentations"] == 16.0
+    assert report["accepted_presentations"] == 8.0 and report["agreed_presentations"] == 8.0
+    assert report["nudged_row_sweeps"] == 8 * report["nudged_steps"]
+    # the update is the one the disagreeing rows teach on their own
+    every.step(drive[taught], labels[taught])
+    np.testing.assert_allclose(selective.brain.efficacy, every.brain.efficacy, atol=1e-6)
+    np.testing.assert_allclose(selective.brain.bias, every.brain.bias, atol=1e-6)
+
+
+def test_surprise_leaves_an_agreeing_batch_untaught() -> None:
+    learner = _learner(True)
+    drive = _blob_drive(learner)
+    labels = learner.predict(drive)
+    efficacy, bias = learner.brain.efficacy.copy(), learner.brain.bias.copy()
+    state, report = learner.step(drive, labels)
+    assert state.taught is not None and not state.taught.any()
+    assert state.nudged is state.free and state.opposite is None
+    assert report["accepted"] == 1.0 and report["accepted_presentations"] == 0.0
+    assert report["agreed_presentations"] == 16.0 and report["attempted_presentations"] == 16.0
+    assert report["nudged_steps"] == 0.0 and report["opposite_row_sweeps"] == 0.0
+    assert report["free_budget_exhausted"] == 0.0 and report["free_steps"] > 0
+    np.testing.assert_array_equal(learner.brain.efficacy, efficacy)
+    np.testing.assert_array_equal(learner.brain.bias, bias)
+    assert learner.contrast_updates == 0
+
+
+def test_every_row_lesson_marks_no_rows_and_counts_none_agreed() -> None:
+    learner = _learner(False)
+    drive = _blob_drive(learner)
+    labels = learner.predict(drive)
+    state, report = learner.step(drive, labels)
+    assert state.taught is None
+    assert report["accepted_presentations"] == 16.0 and report["agreed_presentations"] == 0.0
+    assert learner.contrast_updates == 1
+
+
+def test_surprise_with_the_callers_answer_settles_only_the_differing_rows() -> None:
+    selective, every = _learner(True), _learner(False)
+    drive = _blob_drive(every)
+    labels = every.predict(drive)
+    answer = labels.copy()
+    answer[:4] = 1 - answer[:4]  # the caller read a different answer on four rows
+    state, report = selective.step(drive, labels, answer=answer)
+    assert state.taught is not None and state.taught.tolist() == [True] * 4 + [False] * 12
+    assert len(state.free.activation) == 4 and len(state.nudged.activation) == 4
+    assert report["attempted_presentations"] == 16.0
+    assert report["accepted_presentations"] == 4.0 and report["agreed_presentations"] == 12.0
+    assert report["free_row_sweeps"] == 4 * report["free_steps"]
+    every.step(drive[:4], labels[:4])
+    np.testing.assert_allclose(selective.brain.efficacy, every.brain.efficacy, atol=1e-6)
+    np.testing.assert_allclose(selective.brain.bias, every.brain.bias, atol=1e-6)
+
+
+def test_surprise_with_an_agreeing_answer_runs_no_phase() -> None:
+    learner = _learner(True)
+    drive = _blob_drive(learner)
+    labels = 1 - learner.predict(drive)  # the free phase would disagree on every row
+    efficacy = learner.brain.efficacy.copy()
+    state, report = learner.step(drive, labels, answer=labels)
+    assert state.free is None and state.nudged is None and state.opposite is None
+    assert state.taught is not None and not state.taught.any()
+    assert report["accepted"] == 1.0 and report["accepted_presentations"] == 0.0
+    assert report["agreed_presentations"] == 16.0 and report["attempted_presentations"] == 16.0
+    assert report["free_steps"] == 0.0 and report["total_row_sweeps"] == 0.0
+    np.testing.assert_array_equal(learner.brain.efficacy, efficacy)
+    assert learner.contrast_updates == 0
+    with pytest.raises(ValueError):
+        learner.step(drive, labels, answer=labels[:8])
