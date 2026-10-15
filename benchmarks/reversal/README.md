@@ -47,7 +47,8 @@ Every arm of a seed lives the same odour sequence:
 | `replay` | the `live` brain after rule A, answering greedily and taking no outcome from the world, while its own witnessed records of rule A are presented to its memory again, one per trial: equal presentations on old evidence |
 | `reset` | a newborn `live` brain at every rule change |
 | `tabular` | epsilon-greedy tabular Q-learning with the same odour, action and reward; alpha 1.0 and epsilon 0.1, selected on the development seeds |
-| `random` | uniform random actions |
+| `elman` | an online Elman actor-critic with the same odour, action and reward ([`benchmarks/competitors.py`](../competitors.py), the comparison thread of [issue 183](https://github.com/muellerberndt/cadence/issues/183) and [issue 184](https://github.com/muellerberndt/cadence/issues/184)): a softmax policy and a linear value read a 16-unit Elman state carried across trials, learned by TD(lambda) eligibility traces with a gradient guard, one update per trial, no replay; run on request with `--arms`, its settings declared in the chamber's `COMPETITOR_SETTINGS`, outside the frozen plan, and recorded in the receipt |
+| `gru` | the same actor-critic with a gated recurrent unit, its gradients written by hand and checked against finite differences by the tests |
 
 The operating point of one continuing stream is working-trace amplitude 0.3,
 consolidation 0.25 and an actor rate of 0.1 with a bias rate of 0.01; the composed
@@ -96,7 +97,10 @@ python -m pytest -q benchmarks/reversal
 
 The first command runs the frozen protocol: ten arms, five exposures and ten
 confirmation seeds, 500 lives, in about eight minutes on nine laptop cores. `--arms`,
-`--seeds` and `--exposures` select a part. `--genes`, `--point`, `--reliability`,
+`--seeds` and `--exposures` select a part; `--arms elman gru` adds the competitor arms,
+which the frozen plan does not include, and the receipt then records their settings and,
+per life, their size and work (parameters, hidden width, updates, forward passes,
+multiply-accumulates, guard activations). `--genes`, `--point`, `--reliability`,
 `--payoff` and `--jitter` override the arousal genes, the operating point and the world,
 and mark the receipt `frozen_protocol: false`; a `null` in `--point` leaves that setting
 at its released default. The receipt is a `cadence.Receipt` bound to the chamber's source
@@ -864,6 +868,29 @@ PYTHONPATH=src python benchmarks/reversal/odour_nursery.py --arms live --seeds 0
 PYTHONPATH=src python benchmarks/reversal/odour_nursery.py --arms live --seeds 0 1 2 3 4 5 \
     --workers 6 --point '{"learning": {"homeostasis_rate": 0.02}}' --out <gene receipt>
 ```
+
+## Competitor arms: settings
+
+The `elman` and `gru` arms are the conventional online learners of
+[issue 184](https://github.com/muellerberndt/cadence/issues/184) with this chamber's
+information: the odour, the arm's own action and the reward, one update per trial, no
+replay. They are not part of the frozen plan: `--arms elman gru` adds them, and a receipt
+that runs them records their settings under `competitors`, each row's size under
+`learner`, the chamber's readings per rule as for every arm, and in `--report` a
+size-and-work table (hidden width, parameters, updates, multiply-accumulates, guard
+activations, milliseconds per trial); `--verify` checks a competitor row's counters and its
+parameter count against the declared size. Their settings are declared in the chamber
+(`COMPETITOR_SETTINGS`): hidden width 16, temperature 1 and gradient guard 5 from the
+key-door chamber's recurrent arm; no bootstrapping across trials (gamma 0, lam 0, an
+outcome being complete at the next trial, as the tabular arm's update assumes); and the
+actor step 0.05 with the value step 0.1 for both cells, selected on development seeds 0 to
+5 at exposures 300, 1,000, 3,000 and 10,000 over actor steps 0.02, 0.05, 0.1 and 0.2 (the
+value step twice the actor step; 192 lives of development tuning) by the tabular arm's
+rule, the largest share of lives that end every rule at or above 0.9 with ties by the lower
+median reversal lag, and one tie-breaker declared after the sweep for settings that tie
+without a median lag: the higher mean optimal share at the end of rule B. The confirmation
+seeds were not touched. Development receipts of these arms and their readings are kept
+outside this repository, which carries the code, the tests, the protocol and the settings.
 
 ## What this does and does not establish
 

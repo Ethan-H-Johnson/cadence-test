@@ -10,7 +10,9 @@ completion of episodes that begin at a random stage with the prerequisites grant
 its gene step, at a tenth of it, at the gene step tapered to a tenth at mid-life, and with
 the readout's intrinsic plasticity; the controls are uniform random, the stationary
 memoryless ceiling (uniform over the chain's actions), a frozen newborn and a tabular
-learner with the same information. Readings come from saved copies every
+learner with the same information; the competitor arms are online recurrent actor-critics
+with the same information (``elman``, ``gru``; ``benchmarks/competitors.py``), one update
+per moment, probed from cleared copies. Readings come from saved copies every
 ``probe_every`` moments: completions per thousand moments by the greedy and by the sampled
 policy from stage zero, the greedy action and the right action's probability at every
 stage, the share of the life's own moments spent on its most chosen action, the aroused
@@ -35,6 +37,7 @@ for _name in (
 import argparse  # noqa: E402
 import gzip  # noqa: E402
 import hashlib  # noqa: E402
+import importlib.util  # noqa: E402
 import json  # noqa: E402
 import platform  # noqa: E402
 import sys  # noqa: E402
@@ -57,6 +60,19 @@ MODES = ("observed", "hidden")
 PAYS = ("end", "shaped", "lessons")
 ARMS = ("gene", "small", "taper")
 CONTROLS = ("random", "stationary", "frozen", "tabular")
+COMPETITORS = ("elman", "gru")
+COMPETITORS_PATH = Path(__file__).resolve().parents[1] / "competitors.py"
+
+
+def _load_competitors() -> Any:
+    spec = importlib.util.spec_from_file_location("competitors", COMPETITORS_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+competitors = _load_competitors()
 
 
 # ----------------------------------------------------------------------------------- world
@@ -440,6 +456,155 @@ def run_control(
     return row
 
 
+# ------------------------------------------------------------------------------ competitors
+
+
+def competitor_readings(
+    learner: Any, world: dict[str, Any], mode: str, moments: int, seed: int
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """The brain's readings for a competitor: the greedy and the sampled policy run from
+    stage zero on cleared copies that carry their hidden state through the run, and the
+    greedy answer and the right action's probability at every stage from a cleared state.
+    The copies' work is returned beside the readings; the life's ledger is not touched."""
+    greedy = learner.clone()
+    out: dict[str, Any] = {
+        "greedy": run_policy(world, mode, moments, lambda x, s: greedy.step(x), seed)
+    }
+    sampler = learner.clone()
+    rng = np.random.default_rng([seed, 13])
+    out["sampled"] = run_policy(world, mode, moments, lambda x, s: sampler.step(x, rng), seed)
+    probe = learner.clone()
+    per_stage = []
+    for stage in range(world["steps"]):
+        probs = probe.policy(observe(world, stage, mode))
+        right = world["chain"][stage]
+        action = int(np.argmax(probs))
+        per_stage.append(
+            {
+                "greedy": action,
+                "right": right,
+                "correct": action == right,
+                "p_right": float(probs[right]),
+                "margin": float(probs[right] - np.delete(probs, right).max()),
+            }
+        )
+    out["stages"] = per_stage
+    out["greedy_stage_accuracy"] = float(np.mean([s["correct"] for s in per_stage]))
+    out["p_right_mean"] = float(np.mean([s["p_right"] for s in per_stage]))
+    work = {}
+    for key in ("forward_passes", "multiply_accumulates"):
+        spent = sum(c.work[key] - learner.work[key] for c in (greedy, sampler, probe))
+        work["probe_" + key] = int(spent)
+    return out, work
+
+
+class CompetitorLedger:
+    """What a stretch of a competitor's life cost and what it learned: the brain ledger's
+    counts, with the parameter updates as the learned moments and the TD error's sign in
+    place of the dopamine's."""
+
+    def __init__(self, actions: int) -> None:
+        self.moments = 0
+        self.completions = 0
+        self.right = 0
+        self.learned = 0
+        self.reward = 0.0
+        self.delta = 0.0
+        self.positive = 0
+        self.actions = np.zeros(actions)
+
+    def moment(self, learner: Any, action: int, reward: float, right: bool, done: bool) -> None:
+        self.moments += 1
+        self.completions += int(done)
+        self.right += int(right)
+        self.reward += reward
+        self.actions[action] += 1
+        delta = learner.last_delta
+        if delta is not None:
+            self.learned += 1
+            self.delta += delta
+            self.positive += int(delta > 0)
+
+    def add(self, window: CompetitorLedger) -> None:
+        for name in ("moments", "completions", "right", "learned", "reward", "delta", "positive"):
+            setattr(self, name, getattr(self, name) + getattr(window, name))
+        self.actions = self.actions + window.actions
+
+    def summary(self) -> dict[str, Any]:
+        n = max(self.moments, 1)
+        k = max(self.learned, 1)
+        return {
+            "moments": self.moments,
+            "completions_per_1000": 1000.0 * self.completions / n,
+            "right_share": self.right / n,
+            "income": self.reward / n,
+            "learned": self.learned,
+            "mean_delta": self.delta / k,
+            "positive_share": self.positive / k,
+            "one_action_share": float(self.actions.max() / n),
+            "actions": self.actions.tolist(),
+        }
+
+
+def make_competitor(arm: str, protocol: dict[str, Any], seed: int, actions: int) -> Any:
+    """A competitor at the protocol's declared settings, seeded like the brain arm."""
+    settings = {k: v for k, v in protocol["competitors"][arm].items() if k != "note"}
+    competitors.check_settings(settings)
+    return competitors.ActorCritic(INPUTS, actions, seed, cell=arm, **settings)
+
+
+def run_competitor(
+    arm: str, mode: str, pay: str, seed: int, protocol: dict[str, Any]
+) -> dict[str, Any]:
+    """One competitor living ``moments`` in one mode under one pay: the brain arm's world,
+    observations, rewards, moments and probe schedule. It receives no mark of an attempt's
+    end, as the brain receives none."""
+    started = time.perf_counter()
+    steps = int(protocol["steps"])
+    world = make_world(seed, steps)
+    moments = int(protocol["moments"])
+    probe_every = int(protocol["probe_every"])
+    probe_moments = int(protocol["probe_moments"])
+    learner = make_competitor(arm, protocol, seed, world["actions"])
+    rng = np.random.default_rng([seed, 3])
+    stage = start_stage(pay, rng, steps)
+    reward: float | None = None
+    totals = CompetitorLedger(world["actions"])
+    probe_work = {"probe_forward_passes": 0, "probe_multiply_accumulates": 0}
+
+    def probe(moment: int, window: CompetitorLedger) -> dict[str, Any]:
+        read, work = competitor_readings(learner, world, mode, probe_moments, seed)
+        for key, value in work.items():
+            probe_work[key] += value
+        return {"moment": moment, "readings": read, "window": window.summary()}
+
+    probes = [probe(0, CompetitorLedger(world["actions"]))]
+    for start in range(0, moments, probe_every):
+        stop = min(start + probe_every, moments)
+        window = CompetitorLedger(world["actions"])
+        for _ in range(start, stop):
+            x = observe(world, stage, mode)
+            action = learner.act(x, reward)
+            reward, stage, right, done = outcome(world, stage, action, pay, rng)
+            window.moment(learner, action, reward, right, done)
+        totals.add(window)
+        probes.append(probe(stop, window))
+    return {
+        "kind": "competitor",
+        "arm": arm,
+        "mode": mode,
+        "pay": pay,
+        "seed": seed,
+        "world": world,
+        "describe": learner.describe(),
+        "work": {**learner.ledger(), **probe_work},
+        "probes": probes,
+        "totals": totals.summary(),
+        "final": probes[-1]["readings"],
+        "seconds": time.perf_counter() - started,
+    }
+
+
 # -------------------------------------------------------------------------------------- run
 
 
@@ -447,6 +612,8 @@ def _life_job(args: tuple[str, str, str, int, dict[str, Any], str]) -> dict[str,
     arm, mode, pay, seed, protocol, checkpoints = args
     if arm in CONTROLS:
         return run_control(arm, mode, pay, seed, protocol, Path(checkpoints))
+    if arm in COMPETITORS:
+        return run_competitor(arm, mode, pay, seed, protocol)
     return run_life(arm, mode, pay, seed, protocol, Path(checkpoints))
 
 
@@ -496,6 +663,7 @@ def sources() -> list[tuple[str, Path]]:
     package = Path(cd.__file__).resolve().parent
     return [
         ("prerequisite_chain.py", Path(__file__).resolve()),
+        ("competitors.py", COMPETITORS_PATH),
         *(
             ("cadence/" + path.relative_to(package).as_posix(), path)
             for path in sorted(package.rglob("*.py"))
@@ -559,6 +727,10 @@ def markdown(body: dict[str, Any]) -> str:
         " | one action | aroused | learned | dopamine positive |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
+    lines[2] += (
+        " For a competitor arm, learned counts its parameter updates and the last column"
+        " the share of them with a positive TD error."
+    )
     groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for r in rows:
         groups.setdefault((r["mode"], r["pay"], r["arm"]), []).append(r)
@@ -582,9 +754,9 @@ def markdown(body: dict[str, Any]) -> str:
                 for r in group
             ]
         )
-        aroused = _mean([r["totals"]["aroused_share"] for r in group if "totals" in r])
-        learned = _mean([r["totals"]["learned"] for r in group if "totals" in r], "{:.0f}")
-        pos = _mean([r["totals"]["positive_share"] for r in group if "totals" in r])
+        aroused = _mean([r["totals"].get("aroused_share") for r in group if "totals" in r])
+        learned = _mean([r["totals"].get("learned") for r in group if "totals" in r], "{:.0f}")
+        pos = _mean([r["totals"].get("positive_share") for r in group if "totals" in r])
         lines.append(
             f"| {mode} | {pay} | {arm} | {g} / {s} | {acc} | {pr} | {one} | {aroused}"
             f" | {learned} | {pos} |"
@@ -616,7 +788,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--protocol", type=Path, default=PROTOCOL)
     parser.add_argument("--seeds", type=int, nargs="*", default=None)
     parser.add_argument(
-        "--arms", nargs="*", default=list(ARMS) + list(CONTROLS), choices=ARMS + CONTROLS
+        "--arms",
+        nargs="*",
+        default=list(ARMS) + list(CONTROLS) + list(COMPETITORS),
+        choices=ARMS + CONTROLS + COMPETITORS,
     )
     parser.add_argument("--modes", nargs="*", default=list(MODES), choices=MODES)
     parser.add_argument("--pays", nargs="*", default=list(PAYS), choices=PAYS)
@@ -684,6 +859,15 @@ def main(argv: list[str] | None = None) -> int:
         brain_overrides = pairs(args.brain, "--brain")
         protocol["brain"].update(brain_overrides)
         overrides["brain"] = brain_overrides
+    for arm in args.arms:
+        if arm in COMPETITORS:
+            settings = protocol.get("competitors", {}).get(arm)
+            if settings is None:
+                parser.error(f"the protocol declares no settings for the {arm} arm")
+            try:
+                competitors.check_settings({k: v for k, v in settings.items() if k != "note"})
+            except (KeyError, ValueError, TypeError) as error:
+                parser.error(f"the {arm} settings are invalid: {error}")
     seeds = args.seeds if args.seeds is not None else list(protocol["seeds"]["development"])
     manifest = Receipt.build(SCHEMA, {}, sources()).source
     out = args.out

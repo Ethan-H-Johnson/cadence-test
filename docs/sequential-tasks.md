@@ -51,9 +51,17 @@ More drilling past the point of acquisition does not consolidate, it moves the p
 step ten to thirty times smaller after acquisition held the skill while learning went on.
 A brain that continues through `live` learns only from outcomes that surprise it. On a fully
 observed chain of four actions taught by correcting executed mistakes, five fresh founders
-left alone through `live` kept 42.5% of their 44.8% frozen success; left alone through `step`,
-which learns from every outcome, they kept 33.2%, and two of them fell to nothing. Where most
-surprises are punishments, as in the arena's melee, `live` alone does not hold the skill.
+of the chain instrument left alone through `live` kept 42.5% of their 44.8% frozen success;
+left alone through `step`, which learns from every outcome, they kept 33.2%, and two of them
+fell to nothing. That reading belongs to those five founders. Which path erodes a taught
+chain after the caregiver leaves, and at which stage, depends on the founder: on other
+founders of the same chain, read stage by stage after 80 episodes alone, both paths kept the
+greedy chain in most of them and `step` lost more stages than `live`; on seeds of a replica
+of the chain the drift came through `live`, while `step` had recovered by 80 episodes.
+Whole-chain success hides a stalled stage, so after the caregiver leaves read the greedy
+policy stage by stage beside it, and continue through `live` or lower the actor step. Where
+most surprises are punishments, as in the arena's melee, `live` alone does not hold the
+skill.
 
 ## The pattern that the measurements support
 
@@ -75,10 +83,12 @@ surprises are punishments, as in the arena's melee, `live` alone does not hold t
    can degrade an acquired skill. Select a training budget in development, then
    freeze it before testing fresh founders; disclose any checkpoint selection.
 5. **After acquisition, continue through `live` or lower the actor step.** Once the
-   caregiver leaves, a life through `live` learns only from surprising outcomes and keeps
-   what it was taught. Where surprises are mostly punishments, lower the step instead: the
-   ring stage of the arena (`actor_eta` 0.001 to 0.003 against the nursery's 0.03) is the
-   measured remedy there.
+   caregiver leaves, a life through `live` learns only from surprising outcomes and kept
+   what it was taught on the five founders of the chain instrument, where `step` eroded it;
+   which path erodes a taught chain depends on the founder, so read the greedy policy stage
+   by stage after the caregiver leaves and choose by that reading. Where surprises are
+   mostly punishments, lower the step instead: the ring stage of the arena (`actor_eta`
+   0.001 to 0.003 against the nursery's 0.03) is the measured remedy there.
 6. **Read the sampled policy beside the greedy one.** A frozen greedy copy can answer with
    one action in every situation while the sampled policy's probabilities move with the
    situation (the arena's fingerprint). Read the probability of the right action per
@@ -97,5 +107,7 @@ a step that follows the brain's own uncertainty); and a passed gate for delayed 
 beyond five choices (issue 111). The
 [prerequisite-chain nursery](../benchmarks/chain/README.md) is the instrument for this
 page: the chain's state observed or hidden, pay at the end or in backward lessons, the
-founder brain against uniform random, a frozen newborn, the stationary memoryless ceiling
-and a tabular learner with the same information.
+founder brain against uniform random, a frozen newborn, the stationary memoryless ceiling,
+a tabular learner with the same information and two online recurrent actor-critics (an
+Elman cell and a gated recurrent unit) with the same information, the conventional
+competitors of [issue 184](https://github.com/muellerberndt/cadence/issues/184).

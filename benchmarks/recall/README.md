@@ -638,3 +638,16 @@ the query: horizon 0 on fresh founders with the clean and distractor conditions 
 action of the basal ganglia, chosen per moment and taught by a reward at the query with the
 eligibility the actor keeps over its recent actions, in a recall protocol that pays
 the answer instead of teaching it.
+
+## Reward-based recall
+
+`reward_recall.py` pays one continuing `Brain.live` life at the query instead of teaching it,
+on the finite chamber's conditions, and runs the write into the working trace as an action of
+the basal ganglia at instrument level. Its design, controls, gates and status are in
+[REWARD_RECALL_PROTOCOL.md](REWARD_RECALL_PROTOCOL.md); `protocol-reward.json` declares the
+development protocol and `test_reward_recall.py` its contracts.
+
+```sh
+PYTHONPATH=src python benchmarks/recall/reward_recall.py --out OUT --seeds 0 1
+PYTHONPATH=src python benchmarks/recall/reward_recall.py --report OUT
+```
