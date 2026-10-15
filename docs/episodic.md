@@ -118,10 +118,19 @@ choose the settings:
 
 Where it does not help yet: on the bandit whose history does not matter it scored below the
 composition without it; on the continuing chain, four of the ten seeds completed no chain with
-or without it; the recall gain is uneven, +0.31 on one founder and -0.20 on another; and after
-80 episodes alone through `step`, the frozen greedy policy of the corrected chain can stall at
-one stage while the sampled policy still succeeds (through `live` it does not). It is not the
-default for now.
+or without it; the recall gain is uneven, +0.31 on one founder and -0.20 on another; and on
+the five fresh founders of the chain instrument, after 80 episodes alone through `step` the
+frozen greedy policy of the corrected chain could stall at one stage while the sampled policy
+succeeded (through `live` it did not). It is not the default for now.
+
+The chain reading belongs to the five founders it came from. Which path erodes a taught chain
+after the caregiver leaves, and at which stage, depends on the founder: on other founders of
+the same chain with the memory, read stage by stage after 80 episodes alone, both paths kept
+the greedy chain in most of them and `step` lost more stages than `live`; on seeds of a
+replica of the chain the drift came through `live`, while `step` had recovered by 80
+episodes. Whole-chain success hides a stalled stage. After the caregiver leaves, read the
+greedy policy stage by stage beside whole-chain success, and continue through `live` or lower
+the actor step.
 
 On the [Stone Age environment](https://github.com/ali12mahmood12345-boop/cadence-stone-age)'s
 own benchmarks of its four-step crafting chain (seeds 42 to 46, frozen full-chain success
